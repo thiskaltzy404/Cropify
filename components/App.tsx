@@ -229,7 +229,13 @@ export default function App() {
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }] });
+    const art = (n: number) => {
+      const u = cur.thumb;
+      if (!u) return { src: location.origin + '/logo.png', sizes: '512x512', type: 'image/png' };
+      const s = /=w\d+-h\d+/.test(u) ? u.replace(/=w\d+-h\d+.*$/, `=w${n}-h${n}-l90-rj`) : u;
+      return { src: s, sizes: `${n}x${n}` };
+    };
+    ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [96, 256, 512].map(art) });
     ms.setActionHandler('play', () => { kick(); pl.current?.playVideo(); });
     ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); sil.current?.pause(); });
     ms.setActionHandler('nexttrack', () => step(1));
