@@ -161,8 +161,8 @@ export default function App() {
         {cur && (
           <YouTube videoId={cur.id}
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
-            onReady={(e) => { pl.current = e.target; }}
-            onStateChange={(e) => { if (e.data === 1) setPlaying(true); else if (e.data === 2) setPlaying(false); else if (e.data === 0) step(1); }} />
+            onReady={(e: any) => { pl.current = e.target; }}
+            onStateChange={(e: any) => { if (e.data === 1) setPlaying(true); else if (e.data === 2) setPlaying(false); else if (e.data === 0) step(1); }} />
         )}
       </div>
 
