@@ -41,6 +41,16 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+const Rp = ({ one }: { one: boolean }) => (
+  <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>' + (one ? '<path d="M11.5 10l1.5-1v6"/>' : '') }} />
+);
+const EXTRA_CSS = `
+.qs{position:absolute;left:0;right:0;bottom:0;top:20%;z-index:3;background:#17131ff2;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:26px 26px 0 0;padding:18px 18px 24px;overflow-y:auto;transform:translateY(105%);transition:transform .5s cubic-bezier(.65,0,.2,1)}
+.qs.o{transform:none}
+.qh{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:18px;margin-bottom:10px}
+.ct button.on2,.nh button.on2{color:var(--ac)}
+.nr{display:flex;gap:14px;align-items:center}
+`;
 
 export default function App() {
   const [view, setView] = useState(0);
@@ -58,15 +68,18 @@ export default function App() {
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
   const [open, setOpen] = useState(false);
+  const [showQ, setShowQ] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(0); // 0 = mati, 1 = ulang semua, 2 = ulang satu lagu
   const [lrc, setLrc] = useState<Ln[]>([]);
   const [liked, setLiked] = useLS<T[]>('cropify:liked', []);
   const [hist, setHist] = useLS<T[]>('cropify:hist', []);
   const pl = useRef<any>(null);
+  const stack = useRef<number[]>([]);
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
 
-  // Beranda: ambil lagu sesuai chip
   useEffect(() => {
     let ok = true;
     setLoading(true);
@@ -76,7 +89,6 @@ export default function App() {
     return () => { ok = false; };
   }, [chip]);
 
-  // Cari (debounce)
   useEffect(() => {
     if (!q.trim()) { setRes([]); setSearching(false); return; }
     setSearching(true);
@@ -88,7 +100,6 @@ export default function App() {
     return () => clearTimeout(id);
   }, [q]);
 
-  // Lirik tersinkron dari lrclib
   useEffect(() => {
     setLrc([]);
     if (!cur) return;
@@ -98,7 +109,6 @@ export default function App() {
     return () => { ok = false; };
   }, [cur?.id]);
 
-  // Sinkronkan currentTime dari player YouTube
   useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => {
@@ -114,21 +124,37 @@ export default function App() {
 
   const play = (list: T[], i: number) => {
     const t = list[i];
+    stack.current = [];
     setQueue(list); setQi(i); setPlaying(true); setTime(0); setDur(t.duration);
     setHist([t, ...hist.filter((x) => x.id !== t.id)].slice(0, 30));
   };
+  const jump = (n: number) => { setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration); };
   const step = useCallback((d: number) => {
     if (!queue.length) return;
-    const n = (qi + d + queue.length) % queue.length;
+    let n: number;
+    if (shuffle && queue.length > 1) {
+      if (d < 0 && stack.current.length) {
+        n = stack.current.pop() as number;
+      } else {
+        stack.current.push(qi);
+        do { n = Math.floor(Math.random() * queue.length); } while (n === qi);
+      }
+    } else {
+      n = (qi + d + queue.length) % queue.length;
+    }
     if (n === qi) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
     setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration);
-  }, [queue, qi]);
+  }, [queue, qi, shuffle]);
+  const ended = () => {
+    if (repeat === 2) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
+    if (repeat === 0 && !shuffle && qi === queue.length - 1) { setPlaying(false); setTime(0); return; }
+    step(1);
+  };
   const toggle = () => { const p = pl.current; if (p) playing ? p.pauseVideo() : p.playVideo(); };
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
   const like = (t: T) => setLiked(isL(t) ? liked.filter((x) => x.id !== t.id) : [t, ...liked]);
 
-  // Kontrol di notifikasi / layar kunci
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
@@ -154,15 +180,15 @@ export default function App() {
 
   return (
     <div id="app">
+      <style>{EXTRA_CSS}</style>
       <div className="blob b1" /><div className="blob b2" />
 
-      {/* Player YouTube tersembunyi: hanya untuk audio */}
       <div aria-hidden style={{ position: 'fixed', left: -9999, top: 0, width: 200, height: 200, pointerEvents: 'none' }}>
         {cur && (
           <YouTube videoId={cur.id}
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
             onReady={(e: any) => { pl.current = e.target; }}
-            onStateChange={(e: any) => { if (e.data === 1) setPlaying(true); else if (e.data === 2) setPlaying(false); else if (e.data === 0) step(1); }} />
+            onStateChange={(e: any) => { if (e.data === 1) setPlaying(true); else if (e.data === 2) setPlaying(false); else if (e.data === 0) ended(); }} />
         )}
       </div>
 
@@ -252,8 +278,11 @@ export default function App() {
 
       <div className={'np ' + (open ? 'o' : '')} style={{ '--h1': `hsl(${hue(cur?.id || 'a')},50%,28%)` } as any}>
         <div className="nh">
-          <button onClick={() => setOpen(false)}><Ic n="down" /></button>Sedang Diputar
-          <button className={isL(cur) ? 'like' : ''} onClick={() => cur && like(cur)}><Ic n="heart" /></button>
+          <button onClick={() => { setOpen(false); setShowQ(false); }}><Ic n="down" /></button>Sedang Diputar
+          <div className="nr">
+            <button className={showQ ? 'on2' : ''} onClick={() => setShowQ(!showQ)}><Ic n="list" /></button>
+            <button className={isL(cur) ? 'like' : ''} onClick={() => cur && like(cur)}><Ic n="heart" /></button>
+          </div>
         </div>
         <div className={'disc ' + (playing ? 'p' : '')}><Th t={cur} /></div>
         <h3>{cur?.title}</h3><div className="ar">{cur?.artist}</div>
@@ -265,13 +294,23 @@ export default function App() {
         </div>
         <div className="tm"><span>{fm(time)}</span><span>-{fm(Math.max(0, dur - time))}</span></div>
         <div className="ct">
-          <button><Ic n="shuf" /></button>
+          <button className={shuffle ? 'on2' : ''} onClick={() => setShuffle(!shuffle)}><Ic n="shuf" /></button>
           <button onClick={() => step(-1)}><Ic n="prev" /></button>
           <button className="pp" onClick={toggle}><Ic n={playing ? 'pause' : 'play'} /></button>
           <button onClick={() => step(1)}><Ic n="next" /></button>
-          <button><Ic n="list" /></button>
+          <button className={repeat ? 'on2' : ''} onClick={() => setRepeat((repeat + 1) % 3)}><Rp one={repeat === 2} /></button>
+        </div>
+
+        <div className={'qs ' + (showQ ? 'o' : '')}>
+          <div className="qh">Antrean<button onClick={() => setShowQ(false)}><Ic n="down" /></button></div>
+          {queue.map((t, i) => (
+            <div key={t.id + i} role="button" className={'row ' + (i === qi ? 'cur' : '')} onClick={() => jump(i)}>
+              <div className="th"><Th t={t} /></div>
+              <div className="m"><b style={i === qi ? { color: 'var(--ac)' } : undefined}>{t.title}</b><span>{t.artist}</span></div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
+            }
