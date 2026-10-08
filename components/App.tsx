@@ -41,6 +41,16 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+function silentUrl() {
+  const n = 8000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, n, true);
+  new Uint8Array(b).fill(128, 44);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
 const big = (u?: string) => (u ? u.replace(/=w\d+-h\d+.*$/, '=w800-h800-l90-rj') : '/logo.png');
 const Rp = ({ one }: { one: boolean }) => (
   <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>' + (one ? '<path d="M11.5 10l1.5-1v6"/>' : '') }} />
@@ -77,9 +87,25 @@ export default function App() {
   const [hist, setHist] = useLS<T[]>('cropify:hist', []);
   const pl = useRef<any>(null);
   const stack = useRef<number[]>([]);
+  const want = useRef(false);
+  const sil = useRef<HTMLAudioElement | null>(null);
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
+  useEffect(() => {
+  const a = new Audio(silentUrl());
+  a.loop = true;
+  sil.current = a;
+  const onVis = () => { if (want.current) setTimeout(() => pl.current?.playVideo?.(), 300); };
+  document.addEventListener('visibilitychange', onVis);
+  return () => { document.removeEventListener('visibilitychange', onVis); a.pause(); };
+}, []);
+useEffect(() => { if (cur) want.current = true; }, [cur?.id]);
+useEffect(() => {
+  const a = sil.current;
+  if (a) { if (playing) a.play().catch(() => {}); else a.pause(); }
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+}, [playing]);
   useEffect(() => {
   const stop = (e: Event) => {
     const t = e.target as HTMLElement | null;
@@ -162,10 +188,10 @@ export default function App() {
   }, [queue, qi, shuffle]);
   const ended = () => {
     if (repeat === 2) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
-    if (repeat === 0 && !shuffle && qi === queue.length - 1) { setPlaying(false); setTime(0); return; }
+    if (repeat === 0 && !shuffle && if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }) { setPlaying(false); setTime(0); return; }
     step(1);
   };
-  const toggle = () => { const p = pl.current; if (p) playing ? p.pauseVideo() : p.playVideo(); };
+  const toggle = () => { const p = pl.current; if (!p) return; want.current = !playing; playing ? p.pauseVideo() : p.playVideo(); };
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
   const like = (t: T) => setLiked(isL(t) ? liked.filter((x) => x.id !== t.id) : [t, ...liked]);
@@ -174,8 +200,8 @@ export default function App() {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
     ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }] });
-    ms.setActionHandler('play', () => pl.current?.playVideo());
-    ms.setActionHandler('pause', () => pl.current?.pauseVideo());
+    ms.setActionHandler('play', () => { want.current = true; pl.current?.playVideo(); });
+    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); });
     ms.setActionHandler('nexttrack', () => step(1));
     ms.setActionHandler('previoustrack', () => step(-1));
   }, [cur, step]);
@@ -203,7 +229,7 @@ export default function App() {
           <YouTube videoId={cur.id}
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
             onReady={(e: any) => { pl.current = e.target; }}
-            onStateChange={(e: any) => { if (e.data === 1) setPlaying(true); else if (e.data === 2) setPlaying(false); else if (e.data === 0) ended(); }} />
+            onStateChange={(e: any) => { if (e.data === 1) { want.current = true; setPlaying(true); } else if (e.data === 2) { if (want.current && document.hidden) e.target.playVideo(); else setPlaying(false); } else if (e.data === 0) ended(); }} />
         )}
       </div>
 
