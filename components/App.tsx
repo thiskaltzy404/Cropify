@@ -188,7 +188,7 @@ useEffect(() => {
   }, [queue, qi, shuffle]);
   const ended = () => {
     if (repeat === 2) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
-    if (repeat === 0 && !shuffle && if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }) { setPlaying(false); setTime(0); return; }
+    if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }
     step(1);
   };
   const toggle = () => { const p = pl.current; if (!p) return; want.current = !playing; playing ? p.pauseVideo() : p.playVideo(); };
