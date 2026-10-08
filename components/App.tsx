@@ -209,15 +209,14 @@ export default function App() {
           ) : (<>
             <h2>Pilihan & trending</h2>
             <div className="hs">
-              {home.slice(0, 3).map((t, k) => (
-                <button key={t.id} className="fc rise" style={{ animationDelay: `${k * 100}ms`, background: `linear-gradient(135deg,hsl(${hue(t.id)},70%,60%),hsl(${hue(t.id) + 40},60%,35%))` }}
-                  onClick={() => { play(home, k); setOpen(true); }}>
-                  <h3>{t.title}</h3><p>{t.artist}</p>
-                  <div className="pb"><Ic n="play" /></div>
-                  <div className="cv"><Th t={t} /></div>
-                </button>
-              ))}
-            </div>
+             {home.slice(0, 3).map((t, k) => (
+              <button key={t.id} className="pc rise" style={{ animationDelay: `${k * 100}ms` }} onClick={() => { play(home, k); setOpen(true); }}>
+               <img src={(t.thumb || '/logo.png').replace(/=w\d+-h\d+.*$/, '=w600-h600-l90-rj')} alt="" />
+               <div className="pt"><h3>{t.title}</h3><p>{t.artist}</p></div>
+               <div className="pf2"><span>Pilihan hari ini{t.duration ? ` • ${fm(t.duration)}` : ''}</span><div className="pb"><Ic n="play" /></div></div>
+              </button>
+            ))}
+           </div>
             <h2>Daftar putar harian</h2>
             {home.map((t, k) => (k >= 3 ? row(t, home, k) : null))}
           </>)}
