@@ -41,6 +41,7 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+const big = (u?: string) => (u ? u.replace(/=w\d+-h\d+.*$/, '=w800-h800-l90-rj') : '/logo.png');
 const Rp = ({ one }: { one: boolean }) => (
   <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>' + (one ? '<path d="M11.5 10l1.5-1v6"/>' : '') }} />
 );
@@ -283,7 +284,7 @@ export default function App() {
             <button className={isL(cur) ? 'like' : ''} onClick={() => cur && like(cur)}><Ic n="heart" /></button>
           </div>
         </div>
-        <div className={'disc ' + (playing ? 'p' : '')}><Th t={cur} /></div>
+        <div className={'disc ' + (playing ? 'p' : '')}><img src={big(cur?.thumb)} alt="" /></div>
         <h3>{cur?.title}</h3><div className="ar">{cur?.artist}</div>
         <div className="ly">
           {lrc.length ? [ai - 1, ai, ai + 1].map((k) => lrc[k] ? <p key={k} className={k === ai ? 'a' : ''}>{lrc[k].s}</p> : <p key={k}>&nbsp;</p>) : <p>Lirik tersinkron tidak tersedia</p>}
