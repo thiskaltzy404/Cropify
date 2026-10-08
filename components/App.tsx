@@ -42,7 +42,7 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
 function silentUrl() {
-  const n = 8000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const n = 80000, b = new ArrayBuffer(44 + n), v = new DataView(b);
   const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
   v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
@@ -92,20 +92,45 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
+  // Mencoba melanjutkan YouTube kalau pengguna masih ingin musik jalan tapi player berhenti sendiri
+  const resume = useCallback(() => {
+    const p = pl.current;
+    if (!want.current || !p?.getPlayerState) return;
+    const s = p.getPlayerState();
+    if (s !== 1 && s !== 3) { try { p.playVideo(); } catch {} }
+  }, []);
+  // Dipanggil langsung dari tap pengguna agar audio keepalive diizinkan browser
+  const kick = () => { want.current = true; sil.current?.play().catch(() => {}); };
+
   useEffect(() => {
-  const a = new Audio(silentUrl());
-  a.loop = true;
-  sil.current = a;
-  const onVis = () => { if (want.current) setTimeout(() => pl.current?.playVideo?.(), 300); };
-  document.addEventListener('visibilitychange', onVis);
-  return () => { document.removeEventListener('visibilitychange', onVis); a.pause(); };
-}, []);
-useEffect(() => { if (cur) want.current = true; }, [cur?.id]);
-useEffect(() => {
-  const a = sil.current;
-  if (a) { if (playing) a.play().catch(() => {}); else a.pause(); }
-  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
-}, [playing]);
+    const a = new Audio(silentUrl());
+    a.loop = true;
+    sil.current = a;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const onVis = () => {
+      timers.forEach(clearTimeout); timers.length = 0;
+      if (want.current) [0, 250, 800, 2000].forEach((ms) => timers.push(setTimeout(resume, ms)));
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pageshow', onVis);
+    const watchdog = setInterval(resume, 1500);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pageshow', onVis);
+      clearInterval(watchdog); timers.forEach(clearTimeout); a.pause();
+    };
+  }, [resume]);
+  useEffect(() => { if (cur) want.current = true; }, [cur?.id]);
+  useEffect(() => {
+    const a = sil.current;
+    if (a) { if (playing) a.play().catch(() => {}); else a.pause(); }
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  }, [playing]);
+  // Sinkronkan durasi/posisi di notifikasi dengan lagu YouTube (bukan audio keepalive)
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !dur) return;
+    try { navigator.mediaSession.setPositionState({ duration: dur, position: Math.max(0, Math.min(time, dur)), playbackRate: 1 }); } catch {}
+  }, [Math.floor(time), dur]);
   useEffect(() => {
   const stop = (e: Event) => {
     const t = e.target as HTMLElement | null;
@@ -165,13 +190,15 @@ useEffect(() => {
 
   const play = (list: T[], i: number) => {
     const t = list[i];
+    kick();
     stack.current = [];
     setQueue(list); setQi(i); setPlaying(true); setTime(0); setDur(t.duration);
     setHist([t, ...hist.filter((x) => x.id !== t.id)].slice(0, 30));
   };
-  const jump = (n: number) => { setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration); };
+  const jump = (n: number) => { kick(); setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration); };
   const step = useCallback((d: number) => {
     if (!queue.length) return;
+    kick();
     let n: number;
     if (shuffle && queue.length > 1) {
       if (d < 0 && stack.current.length) {
@@ -191,7 +218,10 @@ useEffect(() => {
     if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }
     step(1);
   };
-  const toggle = () => { const p = pl.current; if (!p) return; want.current = !playing; playing ? p.pauseVideo() : p.playVideo(); };
+  const toggle = () => {
+    const p = pl.current; if (!p) return;
+    if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
+  };
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
   const like = (t: T) => setLiked(isL(t) ? liked.filter((x) => x.id !== t.id) : [t, ...liked]);
@@ -200,10 +230,11 @@ useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
     ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }] });
-    ms.setActionHandler('play', () => { want.current = true; pl.current?.playVideo(); });
-    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); });
+    ms.setActionHandler('play', () => { kick(); pl.current?.playVideo(); });
+    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); sil.current?.pause(); });
     ms.setActionHandler('nexttrack', () => step(1));
     ms.setActionHandler('previoustrack', () => step(-1));
+    try { ms.setActionHandler('seekto', (d: any) => { if (typeof d.seekTime === 'number') seek(d.seekTime); }); } catch {}
   }, [cur, step]);
 
   const row = (t: T, list: T[], i: number) => (
@@ -224,12 +255,12 @@ useEffect(() => {
       <style>{EXTRA_CSS}</style>
       <div className="blob b1" /><div className="blob b2" />
 
-      <div aria-hidden style={{ position: 'fixed', left: -9999, top: 0, width: 200, height: 200, pointerEvents: 'none' }}>
+      <div aria-hidden style={{ position: 'fixed', left: 0, bottom: 0, width: 200, height: 200, opacity: 0.01, zIndex: -1, pointerEvents: 'none' }}>
         {cur && (
           <YouTube videoId={cur.id}
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
             onReady={(e: any) => { pl.current = e.target; }}
-            onStateChange={(e: any) => { if (e.data === 1) { want.current = true; setPlaying(true); } else if (e.data === 2) { if (want.current && document.hidden) e.target.playVideo(); else setPlaying(false); } else if (e.data === 0) ended(); }} />
+            onStateChange={(e: any) => { if (e.data === 1) { want.current = true; setPlaying(true); } else if (e.data === 2) { if (want.current) e.target.playVideo(); else setPlaying(false); } else if (e.data === 0) ended(); }} />
         )}
       </div>
 
