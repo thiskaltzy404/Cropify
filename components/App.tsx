@@ -80,7 +80,21 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
-
+  useEffect(() => {
+  const stop = (e: Event) => {
+    const t = e.target as HTMLElement | null;
+    if (t?.closest?.('input,textarea')) return;
+    e.preventDefault();
+  };
+  const block = (e: KeyboardEvent) => {
+    const k = e.key.toLowerCase();
+    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && ['s', 'u', 'p'].includes(k)) || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k))) e.preventDefault();
+  };
+  const evs = ['contextmenu', 'copy', 'cut', 'dragstart', 'selectstart'];
+  evs.forEach((n) => document.addEventListener(n, stop));
+  document.addEventListener('keydown', block);
+  return () => { evs.forEach((n) => document.removeEventListener(n, stop)); document.removeEventListener('keydown', block); };
+}, []);
   useEffect(() => {
     let ok = true;
     setLoading(true);
