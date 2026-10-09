@@ -92,6 +92,17 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
+  useEffect(() => {
+  const bm = (window as any).Capacitor?.Plugins?.BackgroundMode;
+  if (!bm || !cur) return;
+  (async () => {
+    try {
+      await bm.requestNotificationsPermission?.();
+      await bm.enable?.({ title: 'Cropify', text: 'Musik sedang diputar', silent: true });
+      await bm.disableWebViewOptimizations?.();
+    } catch {}
+   })();
+  }, [cur?.id]);
   // Mencoba melanjutkan YouTube kalau pengguna masih ingin musik jalan tapi player berhenti sendiri
   const resume = useCallback(() => {
     const p = pl.current;
