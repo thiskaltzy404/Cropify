@@ -1,0 +1,46 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Buat proyek Capacitor
+        run: |
+          mkdir android-build
+          cd android-build
+          npm init -y
+          npm i @capacitor/core @capacitor/cli @capacitor/android @anuradev/capacitor-background-mode --legacy-peer-deps
+          mkdir www
+          echo '<!doctype html><title>Cropify</title>' > www/index.html
+          echo '{"appId":"com.kaltzy.cropify","appName":"Cropify","webDir":"www","server":{"url":"https://cropifymusic.vercel.app"}}' > capacitor.config.json
+          npx cap add android
+          npx cap sync android
+          sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/><uses-permission android:name="android.permission.WAKE_LOCK"/><application#' android/app/src/main/AndroidManifest.xml
+      - name: Ikon aplikasi (opsional)
+        continue-on-error: true
+        run: |
+          RES=android-build/android/app/src/main/res
+          rm -rf $RES/mipmap-anydpi-v26
+          for d in $RES/mipmap-*; do
+            convert public/logo.png -resize 192x192 $d/ic_launcher.png
+            convert public/logo.png -resize 192x192 $d/ic_launcher_round.png
+            rm -f $d/ic_launcher_foreground.png
+          done
+      - name: Build APK
+        run: |
+          cd android-build/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cropify-APK
+          path: android-build/android/app/build/outputs/apk/debug/app-debug.apk
