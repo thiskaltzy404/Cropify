@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import YouTube from 'react-youtube';
 import { Ic } from '../lib/icons';
+import { Capacitor } from '@capacitor/core';
+import { MediaSession as NativeMS } from '@jofr/capacitor-media-session';
 
 type T = { id: string; title: string; artist: string; thumb: string; duration: number };
 type Ln = { t: number; s: string };
@@ -92,6 +94,25 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
+  useEffect(() => {
+  if (!Capacitor.isNativePlatform() || !cur) return;
+  const ms: any = NativeMS;
+  try {
+    ms.setMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || 'https://cropifymusic.vercel.app/logo.png', sizes: '512x512', type: 'image/jpeg' }] });
+    ms.setActionHandler({ action: 'play' }, () => { want.current = true; pl.current?.playVideo(); });
+    ms.setActionHandler({ action: 'pause' }, () => { want.current = false; pl.current?.pauseVideo(); });
+    ms.setActionHandler({ action: 'nexttrack' }, () => step(1));
+    ms.setActionHandler({ action: 'previoustrack' }, () => step(-1));
+  } catch {}
+}, [cur?.id]);
+useEffect(() => {
+  if (!Capacitor.isNativePlatform()) return;
+  try { (NativeMS as any).setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }); } catch {}
+}, [playing]);
+useEffect(() => {
+  if (!Capacitor.isNativePlatform() || !dur) return;
+  try { (NativeMS as any).setPositionState({ duration: dur, position: Math.min(time, dur), playbackRate: 1 }); } catch {}
+}, [Math.floor(time / 5), dur]);
   useEffect(() => {
   const bm = (window as any).Capacitor?.Plugins?.BackgroundMode;
   if (!bm || !cur) return;
