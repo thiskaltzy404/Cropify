@@ -28,13 +28,19 @@ jobs:
       - name: Ikon aplikasi (opsional)
         continue-on-error: true
         run: |
-          RES=android-build/android/app/src/main/res
-          rm -rf $RES/mipmap-anydpi-v26
-          for d in $RES/mipmap-*; do
-            convert public/logo.png -resize 192x192 $d/ic_launcher.png
-            convert public/logo.png -resize 192x192 $d/ic_launcher_round.png
-            rm -f $d/ic_launcher_foreground.png
-          done
+          rm -rf android-build/android/app/src/main/res/mipmap-anydpi-v26
+          python3 -m pip install --break-system-packages pillow || true
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+          im = Image.open('public/logo.png').convert('RGBA').resize((192, 192))
+          for d in glob.glob('android-build/android/app/src/main/res/mipmap-*'):
+              for n in ('ic_launcher.png', 'ic_launcher_round.png'):
+                  im.save(os.path.join(d, n))
+              fg = os.path.join(d, 'ic_launcher_foreground.png')
+              if os.path.exists(fg):
+                  os.remove(fg)
+          PY
       - name: Build APK
         run: |
           cd android-build/android
