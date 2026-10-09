@@ -18,7 +18,7 @@ jobs:
           mkdir android-build
           cd android-build
           npm init -y
-          npm i @capacitor/core @capacitor/cli @capacitor/android @anuradev/capacitor-background-mode --legacy-peer-deps
+          npm i @capacitor/core @capacitor/cli @capacitor/android @anuradev/capacitor-background-mode @jofr/capacitor-media-session --legacy-peer-deps
           mkdir www
           echo '<!doctype html><title>Cropify</title>' > www/index.html
           echo '{"appId":"com.kaltzy.cropify","appName":"Cropify","webDir":"www","server":{"url":"https://cropifymusic.vercel.app"}}' > capacitor.config.json
