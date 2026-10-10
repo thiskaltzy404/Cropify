@@ -1,12 +1,15 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import YouTube from 'react-youtube';
-import { Ic } from '../lib/icons';
 import { Capacitor } from '@capacitor/core';
 import { MediaSession as NativeMS } from '@jofr/capacitor-media-session';
+import { Ic } from '../lib/icons';
 
 type T = { id: string; title: string; artist: string; thumb: string; duration: number };
 type Ln = { t: number; s: string };
+type Cat = { t: string; q: string; h: number; i: string };
+type Ar = { id: string; name: string; thumb: string };
+type Sub = { type: 'artist' | 'album'; id: string; name?: string };
 
 const URL_ = 'https://saweria.co/thiskaltzy404';
 const NAV: [string, string][] = [['home', 'Beranda'], ['search', 'Cari'], ['lib', 'Pustaka'], ['coffee', 'Traktir']];
@@ -19,39 +22,12 @@ const PERKS: [string, string, string][] = [
   ['spark', 'Fitur baru rutin', 'Dukunganmu jadi semangat update'],
   ['server', 'Biaya server & domain', 'Supaya Cropify tetap online'],
 ];
-
-const fm = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const hue = (id: string) => [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-const greet = (): [string, string] => {
-  const h = new Date().getHours();
-  return h < 11 ? ['pagi', 'sun'] : h < 15 ? ['siang', 'sun'] : h < 18 ? ['sore', 'sunset'] : ['malam', 'moon'];
-};
-const api = async (u: string): Promise<any> => {
-  try { return await (await fetch(u)).json(); } catch { return {}; }
-};
-function parseLrc(x: string): Ln[] {
-  const out: Ln[] = [];
-  for (const l of x.split('\n')) {
-    const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);
-    if (m && m[3].trim()) out.push({ t: +m[1] * 60 + +m[2], s: m[3].trim() });
-  }
-  return out;
-}
-function useLS<S>(k: string, d: S): [S, (v: S) => void] {
-  const [v, setV] = useState<S>(d);
-  useEffect(() => { try { const x = localStorage.getItem(k); if (x) setV(JSON.parse(x)); } catch {} }, [k]);
-  return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
-}
-const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
-type Ar = { id: string; name: string; thumb: string };
-type Sub = { type: 'artist' | 'album'; id: string; name?: string };
 const TR: Record<string, string> = {
   Songs: 'Lagu teratas', Albums: 'Album', Singles: 'Single & EP', 'Singles & EPs': 'Single & EP',
   Videos: 'Video', 'Live performances': 'Pertunjukan langsung', 'Featured on': 'Termasuk di',
   'Fans might also like': 'Penggemar mungkin juga suka', Playlists: 'Playlist',
 };
-const asT = (it: any, who = ''): T => ({ id: it.id, title: it.title, artist: it.sub || who, thumb: it.thumb || '', duration: it.duration || 0 });
-type Cat = { t: string; q: string; h: number; i: string };
+
 const C = (t: string, q: string, h: number, i: string): Cat => ({ t, q, h, i });
 const CI: Record<string, string> = {
   wave: '<path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>',
@@ -83,9 +59,37 @@ const GROUPS: { title: string; cats: Cat[] }[] = [
   { title: 'Dunia', cats: [C('K-Pop', 'kpop', 330, 'star'), C('J-Pop', 'jpop anime', 280, 'star'), C('Latin', 'latin pop', 25, 'disco'), C('Barat', 'top hits english', 215, 'globe'), C('Melayu', 'pop melayu', 160, 'note')] },
 ];
 const TREN = ['Pop Indonesia', 'Dangdut koplo', 'Lofi', 'Akustik', 'Indie Indonesia', 'Dj remix', 'Religi'];
+
+const fm = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const hue = (id: string) => [...id].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+const greet = (): [string, string] => {
+  const h = new Date().getHours();
+  return h < 11 ? ['pagi', 'sun'] : h < 15 ? ['siang', 'sun'] : h < 18 ? ['sore', 'sunset'] : ['malam', 'moon'];
+};
+const api = async (u: string): Promise<any> => {
+  try { return await (await fetch(u)).json(); } catch { return {}; }
+};
+function parseLrc(x: string): Ln[] {
+  const out: Ln[] = [];
+  for (const l of x.split('\n')) {
+    const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);
+    if (m && m[3].trim()) out.push({ t: +m[1] * 60 + +m[2], s: m[3].trim() });
+  }
+  return out;
+}
+function useLS<S>(k: string, d: S): [S, (v: S) => void] {
+  const [v, setV] = useState<S>(d);
+  useEffect(() => { try { const x = localStorage.getItem(k); if (x) setV(JSON.parse(x)); } catch {} }, [k]);
+  return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
+}
+const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
 const cover = (u?: string, s = 400) => (u ? u.replace(/=w\d+-h\d+.*$/, `=w${s}-h${s}-l90-rj`) : '/logo.png');
+const asT = (it: any, who = ''): T => ({ id: it.id, title: it.title, artist: it.sub || who, thumb: it.thumb || '', duration: it.duration || 0 });
+const Rp = ({ one }: { one: boolean }) => (
+  <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>' + (one ? '<path d="M11.5 10l1.5-1v6"/>' : '') }} />
+);
 function silentUrl() {
-  const n = 80000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const n = 8000, b = new ArrayBuffer(44 + n), v = new DataView(b);
   const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
   w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
   v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
@@ -94,10 +98,6 @@ function silentUrl() {
   new Uint8Array(b).fill(128, 44);
   return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
 }
-const big = (u?: string) => (u ? u.replace(/=w\d+-h\d+.*$/, '=w800-h800-l90-rj') : '/logo.png');
-const Rp = ({ one }: { one: boolean }) => (
-  <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>' + (one ? '<path d="M11.5 10l1.5-1v6"/>' : '') }} />
-);
 const EXTRA_CSS = `
 .qs{position:absolute;left:0;right:0;bottom:0;top:20%;z-index:3;background:#17131ff2;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:26px 26px 0 0;padding:18px 18px 24px;overflow-y:auto;transform:translateY(105%);transition:transform .5s cubic-bezier(.65,0,.2,1)}
 .qs.o{transform:none}
@@ -139,126 +139,79 @@ export default function App() {
   const stack = useRef<number[]>([]);
   const want = useRef(false);
   const sil = useRef<HTMLAudioElement | null>(null);
+  const stepRef = useRef<(d: number) => void>(() => {});
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
-  useEffect(() => {
-  if (!q.trim() || cat) { setArts([]); return; }
-  const id = setTimeout(async () => {
-    const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
-    setArts(d.artists || []);
-  }, 500);
-  return () => clearTimeout(id);
-}, [q, cat]);
-useEffect(() => {
-  setSubData(null);
-  if (!sub) return;
-  let ok = true;
-  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true, _id: sub.id } : { ...d, _id: sub.id });
-  return () => { ok = false; };
-}, [sub?.id, sub?.type]);
-const openSub = (s: Sub) => setSubs([...subs, s]);
-const playList = (list: T[], shuf: boolean) => {
-  if (!list.length) return;
-  const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
-  setShuffle(shuf); play(l, 0); setOpen(true);
-};
-  useEffect(() => {
-  let ok = true;
-  const defs: [string, string][] = [
-    ['Lagu galau pilihan', 'lagu galau indonesia'],
-    ['Pop Indonesia terbaru', 'pop indonesia terbaru'],
-    ['Santai untuk fokus', 'lofi chill indonesia'],
-  ];
-  Promise.all(defs.map((d) => api('/api/search?q=' + encodeURIComponent(d[1])))).then((rs) => {
-    if (ok) setRows(defs.map((d, i) => ({ title: d[0], tracks: rs[i].tracks || [] })).filter((r) => r.tracks.length));
-  });
-  return () => { ok = false; };
-}, []);
-  useEffect(() => {
-  if (!Capacitor.isNativePlatform() || !cur) return;
-  const ms: any = NativeMS;
-  try {
-    ms.setMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || 'https://cropifymusic.vercel.app/logo.png', sizes: '512x512', type: 'image/jpeg' }] });
-    ms.setActionHandler({ action: 'play' }, () => { want.current = true; pl.current?.playVideo(); });
-    ms.setActionHandler({ action: 'pause' }, () => { want.current = false; pl.current?.pauseVideo(); });
-    ms.setActionHandler({ action: 'nexttrack' }, () => step(1));
-    ms.setActionHandler({ action: 'previoustrack' }, () => step(-1));
-  } catch {}
-}, [cur?.id]);
-useEffect(() => {
-  if (!Capacitor.isNativePlatform()) return;
-  try { (NativeMS as any).setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }); } catch {}
-}, [playing]);
-useEffect(() => {
-  if (!Capacitor.isNativePlatform() || !dur) return;
-  try { (NativeMS as any).setPositionState({ duration: dur, position: Math.min(time, dur), playbackRate: 1 }); } catch {}
-}, [Math.floor(time / 5), dur]);
-  useEffect(() => {
-  const bm = (window as any).Capacitor?.Plugins?.BackgroundMode;
-  if (!bm || !cur) return;
-  (async () => {
-    try {
-      await bm.requestNotificationsPermission?.();
-      await bm.enable?.({ title: 'Cropify', text: 'Musik sedang diputar', silent: true });
-      await bm.disableWebViewOptimizations?.();
-    } catch {}
-   })();
-  }, [cur?.id]);
-  // Mencoba melanjutkan YouTube kalau pengguna masih ingin musik jalan tapi player berhenti sendiri
-  const resume = useCallback(() => {
-    const p = pl.current;
-    if (!want.current || !p?.getPlayerState) return;
-    const s = p.getPlayerState();
-    if (s !== 1 && s !== 3) { try { p.playVideo(); } catch {} }
-  }, []);
-  // Dipanggil langsung dari tap pengguna agar audio keepalive diizinkan browser
-  const kick = () => { want.current = true; sil.current?.play().catch(() => {}); };
 
+  // Anti salin: matikan klik kanan, salin, seret, dan pintasan developer tools
+  useEffect(() => {
+    const stop = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('input,textarea')) return;
+      e.preventDefault();
+    };
+    const block = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && ['s', 'u', 'p'].includes(k)) || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k))) e.preventDefault();
+    };
+    const evs = ['contextmenu', 'copy', 'cut', 'dragstart', 'selectstart'];
+    evs.forEach((n) => document.addEventListener(n, stop));
+    document.addEventListener('keydown', block);
+    return () => { evs.forEach((n) => document.removeEventListener(n, stop)); document.removeEventListener('keydown', block); };
+  }, []);
+
+  // Pemutaran latar belakang: audio senyap + lanjutkan otomatis saat halaman tersembunyi
   useEffect(() => {
     const a = new Audio(silentUrl());
     a.loop = true;
     sil.current = a;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const onVis = () => {
-      timers.forEach(clearTimeout); timers.length = 0;
-      if (want.current) [0, 250, 800, 2000].forEach((ms) => timers.push(setTimeout(resume, ms)));
-    };
+    const onVis = () => { if (want.current) setTimeout(() => pl.current?.playVideo?.(), 300); };
     document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('pageshow', onVis);
-    const watchdog = setInterval(resume, 1500);
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('pageshow', onVis);
-      clearInterval(watchdog); timers.forEach(clearTimeout); a.pause();
-    };
-  }, [resume]);
+    return () => { document.removeEventListener('visibilitychange', onVis); a.pause(); };
+  }, []);
   useEffect(() => { if (cur) want.current = true; }, [cur?.id]);
   useEffect(() => {
     const a = sil.current;
     if (a) { if (playing) a.play().catch(() => {}); else a.pause(); }
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
   }, [playing]);
-  // Sinkronkan durasi/posisi di notifikasi dengan lagu YouTube (bukan audio keepalive)
+
+  // Mode latar belakang native (hanya aktif di dalam APK)
   useEffect(() => {
-    if (!('mediaSession' in navigator) || !dur) return;
-    try { navigator.mediaSession.setPositionState({ duration: dur, position: Math.max(0, Math.min(time, dur)), playbackRate: 1 }); } catch {}
-  }, [Math.floor(time), dur]);
+    const bm = (window as any).Capacitor?.Plugins?.BackgroundMode;
+    if (!bm || !cur) return;
+    (async () => {
+      try {
+        await bm.requestNotificationsPermission?.();
+        await bm.enable?.({ title: 'Cropify', text: 'Musik sedang diputar', silent: true });
+        await bm.disableWebViewOptimizations?.();
+      } catch {}
+    })();
+  }, [cur?.id]);
+
+  // Notifikasi media native (hanya aktif di dalam APK)
   useEffect(() => {
-  const stop = (e: Event) => {
-    const t = e.target as HTMLElement | null;
-    if (t?.closest?.('input,textarea')) return;
-    e.preventDefault();
-  };
-  const block = (e: KeyboardEvent) => {
-    const k = e.key.toLowerCase();
-    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && ['s', 'u', 'p'].includes(k)) || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k))) e.preventDefault();
-  };
-  const evs = ['contextmenu', 'copy', 'cut', 'dragstart', 'selectstart'];
-  evs.forEach((n) => document.addEventListener(n, stop));
-  document.addEventListener('keydown', block);
-  return () => { evs.forEach((n) => document.removeEventListener(n, stop)); document.removeEventListener('keydown', block); };
-}, []);
+    if (!Capacitor.isNativePlatform() || !cur) return;
+    const ms: any = NativeMS;
+    try {
+      ms.setMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || 'https://cropifymusic.vercel.app/logo.png', sizes: '512x512', type: 'image/jpeg' }] });
+      ms.setActionHandler({ action: 'play' }, () => { want.current = true; pl.current?.playVideo(); });
+      ms.setActionHandler({ action: 'pause' }, () => { want.current = false; pl.current?.pauseVideo(); });
+      ms.setActionHandler({ action: 'nexttrack' }, () => stepRef.current(1));
+      ms.setActionHandler({ action: 'previoustrack' }, () => stepRef.current(-1));
+    } catch {}
+  }, [cur?.id]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    try { (NativeMS as any).setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }); } catch {}
+  }, [playing]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !dur) return;
+    try { (NativeMS as any).setPositionState({ duration: dur, position: Math.min(time, dur), playbackRate: 1 }); } catch {}
+  }, [Math.floor(time / 5), dur]);
+
+  // Beranda: lagu sesuai chip
   useEffect(() => {
     let ok = true;
     setLoading(true);
@@ -268,6 +221,21 @@ useEffect(() => {
     return () => { ok = false; };
   }, [chip]);
 
+  // Beranda: baris kartu tambahan
+  useEffect(() => {
+    let ok = true;
+    const defs: [string, string][] = [
+      ['Lagu galau pilihan', 'lagu galau indonesia'],
+      ['Pop Indonesia terbaru', 'pop indonesia terbaru'],
+      ['Santai untuk fokus', 'lofi chill indonesia'],
+    ];
+    Promise.all(defs.map((d) => api('/api/search?q=' + encodeURIComponent(d[1])))).then((rs) => {
+      if (ok) setRows(defs.map((d, i) => ({ title: d[0], tracks: rs[i].tracks || [] })).filter((r) => r.tracks.length));
+    });
+    return () => { ok = false; };
+  }, []);
+
+  // Cari lagu (debounce)
   useEffect(() => {
     if (!q.trim()) { setRes([]); setSearching(false); return; }
     setSearching(true);
@@ -279,6 +247,28 @@ useEffect(() => {
     return () => clearTimeout(id);
   }, [q]);
 
+  // Cari artis (debounce)
+  useEffect(() => {
+    if (!q.trim() || cat) { setArts([]); return; }
+    const id = setTimeout(async () => {
+      const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
+      setArts(d.artists || []);
+    }, 500);
+    return () => clearTimeout(id);
+  }, [q, cat]);
+
+  // Halaman artis / album
+  useEffect(() => {
+    setSubData(null);
+    if (!sub) return;
+    let ok = true;
+    api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => {
+      if (ok) setSubData(!d || d.error ? { error: true, _id: sub.id } : { ...d, _id: sub.id });
+    });
+    return () => { ok = false; };
+  }, [sub?.id, sub?.type]);
+
+  // Lirik tersinkron
   useEffect(() => {
     setLrc([]);
     if (!cur) return;
@@ -288,6 +278,7 @@ useEffect(() => {
     return () => { ok = false; };
   }, [cur?.id]);
 
+  // Sinkronkan waktu dari player YouTube
   useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => {
@@ -301,8 +292,10 @@ useEffect(() => {
     return () => clearInterval(id);
   }, [playing]);
 
+  const kick = () => { want.current = true; sil.current?.play().catch(() => {}); };
   const play = (list: T[], i: number) => {
     const t = list[i];
+    if (!t) return;
     kick();
     stack.current = [];
     setQueue(list); setQi(i); setPlaying(true); setTime(0); setDur(t.duration);
@@ -311,7 +304,6 @@ useEffect(() => {
   const jump = (n: number) => { kick(); setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration); };
   const step = useCallback((d: number) => {
     if (!queue.length) return;
-    kick();
     let n: number;
     if (shuffle && queue.length > 1) {
       if (d < 0 && stack.current.length) {
@@ -326,35 +318,16 @@ useEffect(() => {
     if (n === qi) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
     setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration);
   }, [queue, qi, shuffle]);
+  stepRef.current = step;
   const ended = () => {
     if (repeat === 2) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
     if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }
     step(1);
   };
   const toggle = () => {
-  { setArts([]); return; }
-  const id = setTimeout(async () => {
-    const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
-    setArts(d.artists || []);
-  }, 500);
-  return () => clearTimeout(id);
-}, [q, cat]);
-useEffect(() => {
-  setSubData(null);
-  if (!sub) return;
-  let ok = true;
-  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true, _id: sub.id } : { ...d, _id: sub.id });
-  return () => { ok = false; };
-}, [sub?.id, sub?.type]);
-const openSub = (s: Sub) => setSubs([...subs, s]);
-const playList = (list: T[], shuf: boolean) => {
-  if (!list.length) return;
-  const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
-  setShuffle(shuf); play(l, 0); setOpen(true);
-};
- const toggle = () => {   
-  const p = pl.current; if (!p) return;
-  if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
+    const p = pl.current;
+    if (!p) return;
+    if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
   };
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
@@ -362,26 +335,26 @@ const playList = (list: T[], shuf: boolean) => {
   const openCat = (c: Cat) => { setCat(c); setQ(c.q); };
   const closeSearch = () => { setCat(null); setQ(''); };
   const saveRecent = (s: string) => {
-  const v = s.trim();
-  if (v.length < 2 || cat) return;
-  setRecent([v, ...recent.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8));
- };
-  
+    const v = s.trim();
+    if (v.length < 2 || cat) return;
+    setRecent([v, ...recent.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8));
+  };
+  const openSub = (s: Sub) => setSubs([...subs, s]);
+  const playList = (list: T[], shuf: boolean) => {
+    if (!list.length) return;
+    const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
+    setShuffle(shuf); play(l, 0); setOpen(true);
+  };
+
+  // Kontrol di notifikasi / layar kunci (browser)
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
-    const art = (n: number) => {
-      const u = cur.thumb;
-      if (!u) return { src: location.origin + '/logo.png', sizes: '512x512', type: 'image/png' };
-      const s = /=w\d+-h\d+/.test(u) ? u.replace(/=w\d+-h\d+.*$/, `=w${n}-h${n}-l90-rj`) : u;
-      return { src: s, sizes: `${n}x${n}` };
-    };
-    ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [96, 256, 512].map(art) });
-    ms.setActionHandler('play', () => { kick(); pl.current?.playVideo(); });
-    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); sil.current?.pause(); });
+    ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }] });
+    ms.setActionHandler('play', () => { want.current = true; pl.current?.playVideo(); });
+    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); });
     ms.setActionHandler('nexttrack', () => step(1));
     ms.setActionHandler('previoustrack', () => step(-1));
-    try { ms.setActionHandler('seekto', (d: any) => { if (typeof d.seekTime === 'number') seek(d.seekTime); }); } catch {}
   }, [cur, step]);
 
   const row = (t: T, list: T[], i: number) => (
@@ -402,183 +375,187 @@ const playList = (list: T[], shuf: boolean) => {
       <style>{EXTRA_CSS}</style>
       <div className="blob b1" /><div className="blob b2" />
 
-      <div aria-hidden style={{ position: 'fixed', left: 0, bottom: 0, width: 200, height: 200, opacity: 0.01, zIndex: -1, pointerEvents: 'none' }}>
+      <div aria-hidden style={{ position: 'fixed', left: -9999, top: 0, width: 200, height: 200, pointerEvents: 'none' }}>
         {cur && (
           <YouTube videoId={cur.id}
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
             onReady={(e: any) => { pl.current = e.target; }}
-            onStateChange={(e: any) => { if (e.data === 1) { want.current = true; setPlaying(true); } else if (e.data === 2) { if (want.current) e.target.playVideo(); else setPlaying(false); } else if (e.data === 0) ended(); }} />
+            onStateChange={(e: any) => {
+              if (e.data === 1) { want.current = true; setPlaying(true); }
+              else if (e.data === 2) { if (want.current && document.hidden) e.target.playVideo(); else setPlaying(false); }
+              else if (e.data === 0) ended();
+            }} />
         )}
       </div>
 
       {view === 0 && (
-  <div className="view" key="v0">
-    <div className="top">
-      <div className="av"><img src="/logo.png" alt="Cropify" /></div>
-      <div className="brand">Cropify</div>
-      <button className="ib" onClick={() => setView(1)}><Ic n="search" /></button>
-    </div>
-    <h1 className="rise">Hi, Selamat {g[0]} <span className="hot"><Ic n={g[1]} /></span></h1>
-    <div className="sub rise" style={{ animationDelay: '.08s' }}>Halo, <b>KALTZY404</b> • mau dengar apa hari ini?</div>
-    <div className="chips">
-      {CHIPS.map((c, i) => <button key={c[0]} className={'chip ' + (i === chip ? 'on' : '')} onClick={() => setChip(i)}>{c[0]}</button>)}
-    </div>
-    {loading ? <div className="er">Memuat lagu…</div> : home.length === 0 ? (
-      <div className="er">Gagal memuat lagu. Coba ganti kategori atau muat ulang halaman.</div>
-    ) : (<>
-      <div className="qg2">
-        {home.slice(0, 6).map((t, k) => (
-          <button key={t.id} className="qt rise" style={{ animationDelay: `${k * 50}ms` }} onClick={() => { play(home, k); setOpen(true); }}>
-            <img src={cover(t.thumb, 200)} alt="" /><span>{t.title}</span>
-          </button>
-        ))}
-      </div>
-      {hist.length > 0 && (<>
-        <h2>Baru diputar</h2>
-        <div className="hs2">
-          {hist.slice(0, 10).map((t, k) => (
-            <button key={t.id} className="sq" onClick={() => { play(hist, k); setOpen(true); }}>
-              <div className="sqi"><img src={cover(t.thumb, 300)} alt="" /></div>
-              <b>{t.title}</b><span>{t.artist}</span>
-            </button>
-          ))}
-        </div>
-      </>)}
-      <h2>Daftar putar harian</h2>
-      {home.slice(6, 10).map((t, k) => row(t, home, k + 6))}
-    </>)}
-    {rows.map((r) => (
-      <div key={r.title}>
-        <h2>{r.title}</h2>
-        <div className="hs2">
-          {r.tracks.slice(0, 10).map((t, k) => (
-            <button key={t.id} className="sq lg" onClick={() => { play(r.tracks, k); setOpen(true); }}>
-              <div className="sqi"><img src={cover(t.thumb, 500)} alt="" /></div>
-              <b>{t.title}</b><span>{t.artist}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-)}
-
-      {view === 1 && sub && (
-  <div className="view" key={'s' + sub.id}>
-    <div className="sh">
-      <button className="ib" onClick={() => setSubs(subs.slice(0, -1))}><Ic n="down" c="bk" /></button>
-      <h2 style={{ fontSize: 20, margin: 0 }}>{(subData?._id === sub.id && (subData.name || subData.title)) || sub.name || ''}</h2>
-    </div>
-    {!subData || subData._id !== sub.id ? <div className="er">Memuat…</div> : subData.error ? <div className="er">Gagal memuat. Coba lagi nanti.</div> : sub.type === 'artist' ? (<>
-      <div className="ah rise">
-        <div className="ap"><img src={cover(subData.thumb, 500)} alt="" /></div>
-        <h1 className="an">{subData.name}</h1>
-        {subData.description && <p className="ad">{subData.description}</p>}
-        <div className="ab">
-          <button className="big" onClick={() => playList(subData.songs, false)}><Ic n="play" /> Putar</button>
-          <button className="big alt" onClick={() => playList(subData.songs, true)}><Ic n="shuf" /> Acak</button>
-        </div>
-      </div>
-      {subData.songs.length > 0 && (<><h2>Lagu teratas</h2>{subData.songs.slice(0, 8).map((t: T, k: number) => row(t, subData.songs, k))}</>)}
-      {subData.sections.map((s: any) => {
-        const pl: T[] = s.items.filter((i: any) => i.kind === 'song' || i.kind === 'video').map((i: any) => asT(i, subData.name));
-        return (
-          <div key={s.title}>
-            <h2>{TR[s.title] || s.title}</h2>
-            <div className="hs2">
-              {s.items.map((it: any, k: number) => (
-                <button key={it.id + k} className={'sq lg' + (it.kind === 'artist' ? ' rd' : '')}
-                  onClick={() => {
-                    if (it.kind === 'artist') openSub({ type: 'artist', id: it.id, name: it.title });
-                    else if (it.kind === 'album' || it.kind === 'playlist') openSub({ type: 'album', id: it.id, name: it.title });
-                    else { const i = pl.findIndex((x) => x.id === it.id); if (i < 0) return; play(pl, i); setOpen(true); }
-                  }}>
-                  <div className="sqi"><img src={cover(it.thumb, 400)} alt="" /></div>
-                  <b>{it.title}</b><span>{it.sub}</span>
+        <div className="view" key="v0">
+          <div className="top">
+            <div className="av"><img src="/logo.png" alt="Cropify" /></div>
+            <div className="brand">Cropify</div>
+            <button className="ib" onClick={() => setView(1)}><Ic n="search" /></button>
+          </div>
+          <h1 className="rise">Hi, Selamat {g[0]} <span className="hot"><Ic n={g[1]} /></span></h1>
+          <div className="sub rise" style={{ animationDelay: '.08s' }}>Halo, <b>KALTZY404</b> • mau dengar apa hari ini?</div>
+          <div className="chips">
+            {CHIPS.map((c, i) => <button key={c[0]} className={'chip ' + (i === chip ? 'on' : '')} onClick={() => setChip(i)}>{c[0]}</button>)}
+          </div>
+          {loading ? <div className="er">Memuat lagu…</div> : home.length === 0 ? (
+            <div className="er">Gagal memuat lagu. Coba ganti kategori atau muat ulang halaman.</div>
+          ) : (<>
+            <div className="qg2">
+              {home.slice(0, 6).map((t, k) => (
+                <button key={t.id} className="qt rise" style={{ animationDelay: `${k * 50}ms` }} onClick={() => { play(home, k); setOpen(true); }}>
+                  <img src={cover(t.thumb, 200)} alt="" /><span>{t.title}</span>
                 </button>
               ))}
             </div>
-          </div>
-        );
-      })}
-    </>) : (<>
-      <div className="abh rise">
-        <div className="ai2"><img src={cover(subData.thumb, 400)} alt="" /></div>
-        <div><h2 style={{ margin: '0 0 4px', fontSize: 20 }}>{subData.title}</h2><div className="sub" style={{ margin: 0 }}>{subData.subtitle}</div></div>
-      </div>
-      <div className="ab">
-        <button className="big" onClick={() => playList(subData.tracks, false)}><Ic n="play" /> Putar</button>
-        <button className="big alt" onClick={() => playList(subData.tracks, true)}><Ic n="shuf" /> Acak</button>
-      </div>
-      {subData.tracks.map((t: T, k: number) => row(t, subData.tracks, k))}
-    </>)}
-  </div>
-)}
-      
-      {view === 1 && !sub && (
-  <div className="view" key="v1">
-    <div className="sh">
-      {q.trim() && <button className="ib" onClick={closeSearch}><Ic n="down" c="bk" /></button>}
-      <h2 style={{ fontSize: 26, margin: 0 }}>{cat ? cat.t : q.trim() ? 'Hasil pencarian' : 'Cari'}</h2>
-    </div>
-    <div className="srch">
-      <Ic n="search" />
-      <input placeholder="Judul lagu, artis, atau suasana" value={cat ? '' : q}
-        onChange={(e) => { setCat(null); setQ(e.target.value); }}
-        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-        onBlur={() => saveRecent(q)} />
-      {q.trim() && !cat && <button className="xb" onClick={closeSearch}><svg className="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>}
-    </div>
-    {q.trim() ? (<>
-      {!cat && arts.length > 0 && (<>
-  <h2>Artis</h2>
-  <div className="arow">
-    {arts.map((a) => (
-      <button key={a.id} className="ac" onClick={() => openSub({ type: 'artist', id: a.id, name: a.name })}>
-        <div className="ai"><img src={cover(a.thumb, 300)} alt="" /></div><b>{a.name}</b>
-      </button>
-    ))}
-  </div>
-  <h2>Lagu</h2>
-</>)}  
-      {cat && (
-        <div className="cb" style={{ '--h': cat.h } as any}>
-          <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[cat.i] }} />
-          <div><b>{cat.t}</b><span>{searching ? 'Mencari lagu…' : `${res.length} lagu pilihan`}</span></div>
+            {hist.length > 0 && (<>
+              <h2>Baru diputar</h2>
+              <div className="hs2">
+                {hist.slice(0, 10).map((t, k) => (
+                  <button key={t.id} className="sq" onClick={() => { play(hist, k); setOpen(true); }}>
+                    <div className="sqi"><img src={cover(t.thumb, 300)} alt="" /></div>
+                    <b>{t.title}</b><span>{t.artist}</span>
+                  </button>
+                ))}
+              </div>
+            </>)}
+            <h2>Daftar putar harian</h2>
+            {home.slice(6, 10).map((t, k) => row(t, home, k + 6))}
+          </>)}
+          {rows.map((r) => (
+            <div key={r.title}>
+              <h2>{r.title}</h2>
+              <div className="hs2">
+                {r.tracks.slice(0, 10).map((t, k) => (
+                  <button key={t.id} className="sq lg" onClick={() => { play(r.tracks, k); setOpen(true); }}>
+                    <div className="sqi"><img src={cover(t.thumb, 500)} alt="" /></div>
+                    <b>{t.title}</b><span>{t.artist}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
-      {searching ? <div className="er">Mencari…</div> : res.length ? res.map((t, k) => row(t, res, k)) : <div className="er">Tidak ditemukan</div>}
-    </>) : (<>
-      <button className="sur rise" onClick={() => { const all = GROUPS.flatMap((g) => g.cats); openCat(all[Math.floor(Math.random() * all.length)]); }}>
-        <span className="sp"><svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI.shuffle }} /></span>
-        <div><b>Kejutkan aku</b><span>Pilih kategori secara acak</span></div>
-      </button>
-      {recent.length > 0 && (<>
-        <h2>Pencarian terakhir <button className="lnk" onClick={() => setRecent([])}>Hapus</button></h2>
-        <div className="chips wr">
-          {recent.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
-        </div>
-      </>)}
-      <h2>Lagi ramai</h2>
-      <div className="chips wr">
-        {TREN.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
-      </div>
-      {GROUPS.map((g) => (
-        <div key={g.title}>
-          <h2>{g.title}</h2>
-          <div className="cgrid">
-            {g.cats.map((c, k) => (
-              <button key={c.t} className="cc rise" style={{ '--h': c.h, animationDelay: `${Math.min(k, 8) * 40}ms` } as any} onClick={() => openCat(c)}>
-                <svg className="i cg" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[c.i] }} />
-                <b>{c.t}</b>
-              </button>
-            ))}
+
+      {view === 1 && sub && (
+        <div className="view" key={'s' + sub.id}>
+          <div className="sh">
+            <button className="ib" onClick={() => setSubs(subs.slice(0, -1))}><Ic n="down" c="bk" /></button>
+            <h2 style={{ fontSize: 20, margin: 0 }}>{(subData?._id === sub.id && (subData.name || subData.title)) || sub.name || ''}</h2>
           </div>
+          {!subData || subData._id !== sub.id ? <div className="er">Memuat…</div> : subData.error ? <div className="er">Gagal memuat. Coba lagi nanti.</div> : sub.type === 'artist' ? (<>
+            <div className="ah rise">
+              <div className="ap"><img src={cover(subData.thumb, 500)} alt="" /></div>
+              <h1 className="an">{subData.name}</h1>
+              {subData.description && <p className="ad">{subData.description}</p>}
+              <div className="ab">
+                <button className="big" onClick={() => playList(subData.songs || [], false)}><Ic n="play" /> Putar</button>
+                <button className="big alt" onClick={() => playList(subData.songs || [], true)}><Ic n="shuf" /> Acak</button>
+              </div>
+            </div>
+            {(subData.songs || []).length > 0 && (<><h2>Lagu teratas</h2>{subData.songs.slice(0, 8).map((t: T, k: number) => row(t, subData.songs, k))}</>)}
+            {(subData.sections || []).map((s: any) => {
+              const plist: T[] = s.items.filter((i: any) => i.kind === 'song' || i.kind === 'video').map((i: any) => asT(i, subData.name));
+              return (
+                <div key={s.title}>
+                  <h2>{TR[s.title] || s.title}</h2>
+                  <div className="hs2">
+                    {s.items.map((it: any, k: number) => (
+                      <button key={it.id + k} className={'sq lg' + (it.kind === 'artist' ? ' rd' : '')}
+                        onClick={() => {
+                          if (it.kind === 'artist') openSub({ type: 'artist', id: it.id, name: it.title });
+                          else if (it.kind === 'album' || it.kind === 'playlist') openSub({ type: 'album', id: it.id, name: it.title });
+                          else { const i = plist.findIndex((x) => x.id === it.id); if (i < 0) return; play(plist, i); setOpen(true); }
+                        }}>
+                        <div className="sqi"><img src={cover(it.thumb, 400)} alt="" /></div>
+                        <b>{it.title}</b><span>{it.sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </>) : (<>
+            <div className="abh rise">
+              <div className="ai2"><img src={cover(subData.thumb, 400)} alt="" /></div>
+              <div><h2 style={{ margin: '0 0 4px', fontSize: 20 }}>{subData.title}</h2><div className="sub" style={{ margin: 0 }}>{subData.subtitle}</div></div>
+            </div>
+            <div className="ab">
+              <button className="big" onClick={() => playList(subData.tracks || [], false)}><Ic n="play" /> Putar</button>
+              <button className="big alt" onClick={() => playList(subData.tracks || [], true)}><Ic n="shuf" /> Acak</button>
+            </div>
+            {(subData.tracks || []).map((t: T, k: number) => row(t, subData.tracks, k))}
+          </>)}
         </div>
-      ))}
-    </>)}
-  </div>
-)}
+      )}
+
+      {view === 1 && !sub && (
+        <div className="view" key="v1">
+          <div className="sh">
+            {q.trim() && <button className="ib" onClick={closeSearch}><Ic n="down" c="bk" /></button>}
+            <h2 style={{ fontSize: 26, margin: 0 }}>{cat ? cat.t : q.trim() ? 'Hasil pencarian' : 'Cari'}</h2>
+          </div>
+          <div className="srch">
+            <Ic n="search" />
+            <input placeholder="Judul lagu, artis, atau suasana" value={cat ? '' : q}
+              onChange={(e) => { setCat(null); setQ(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              onBlur={() => saveRecent(q)} />
+            {q.trim() && !cat && <button className="xb" onClick={closeSearch}><svg className="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>}
+          </div>
+          {q.trim() ? (<>
+            {!cat && arts.length > 0 && (<>
+              <h2>Artis</h2>
+              <div className="arow">
+                {arts.map((a) => (
+                  <button key={a.id} className="ac" onClick={() => openSub({ type: 'artist', id: a.id, name: a.name })}>
+                    <div className="ai"><img src={cover(a.thumb, 300)} alt="" /></div><b>{a.name}</b>
+                  </button>
+                ))}
+              </div>
+              <h2>Lagu</h2>
+            </>)}
+            {cat && (
+              <div className="cb" style={{ '--h': cat.h } as any}>
+                <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[cat.i] }} />
+                <div><b>{cat.t}</b><span>{searching ? 'Mencari lagu…' : `${res.length} lagu pilihan`}</span></div>
+              </div>
+            )}
+            {searching ? <div className="er">Mencari…</div> : res.length ? res.map((t, k) => row(t, res, k)) : <div className="er">Tidak ditemukan</div>}
+          </>) : (<>
+            <button className="sur rise" onClick={() => { const all = GROUPS.flatMap((x) => x.cats); openCat(all[Math.floor(Math.random() * all.length)]); }}>
+              <span className="sp"><svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI.shuffle }} /></span>
+              <div><b>Kejutkan aku</b><span>Pilih kategori secara acak</span></div>
+            </button>
+            {recent.length > 0 && (<>
+              <h2>Pencarian terakhir <button className="lnk" onClick={() => setRecent([])}>Hapus</button></h2>
+              <div className="chips wr">
+                {recent.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
+              </div>
+            </>)}
+            <h2>Lagi ramai</h2>
+            <div className="chips wr">
+              {TREN.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
+            </div>
+            {GROUPS.map((gr) => (
+              <div key={gr.title}>
+                <h2>{gr.title}</h2>
+                <div className="cgrid">
+                  {gr.cats.map((c, k) => (
+                    <button key={c.t} className="cc rise" style={{ '--h': c.h, animationDelay: `${Math.min(k, 8) * 40}ms` } as any} onClick={() => openCat(c)}>
+                      <svg className="i cg" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[c.i] }} />
+                      <b>{c.t}</b>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>)}
+        </div>
+      )}
 
       {view === 2 && (
         <div className="view" key="v2">
@@ -632,7 +609,7 @@ const playList = (list: T[], shuf: boolean) => {
             <button className={isL(cur) ? 'like' : ''} onClick={() => cur && like(cur)}><Ic n="heart" /></button>
           </div>
         </div>
-        <div className={'disc ' + (playing ? 'p' : '')}><img src={big(cur?.thumb)} alt="" /></div>
+        <div className={'disc ' + (playing ? 'p' : '')}><img src={cover(cur?.thumb, 800)} alt="" /></div>
         <h3>{cur?.title}</h3><div className="ar">{cur?.artist}</div>
         <div className="ly">
           {lrc.length ? [ai - 1, ai, ai + 1].map((k) => lrc[k] ? <p key={k} className={k === ai ? 'a' : ''}>{lrc[k].s}</p> : <p key={k}>&nbsp;</p>) : <p>Lirik tersinkron tidak tersedia</p>}
@@ -661,4 +638,4 @@ const playList = (list: T[], shuf: boolean) => {
       </div>
     </div>
   );
-            }
+}
