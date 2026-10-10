@@ -154,7 +154,7 @@ useEffect(() => {
   setSubData(null);
   if (!sub) return;
   let ok = true;
-  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true } : d); });
+  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true, _id: sub.id } : { ...d, _id: sub.id });
   return () => { ok = false; };
 }, [sub?.id, sub?.type]);
 const openSub = (s: Sub) => setSubs([...subs, s]);
@@ -344,7 +344,7 @@ useEffect(() => {
   setSubData(null);
   if (!sub) return;
   let ok = true;
-  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true } : d); });
+  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true, _id: sub.id } : { ...d, _id: sub.id });
   return () => { ok = false; };
 }, [sub?.id, sub?.type]);
 const openSub = (s: Sub) => setSubs([...subs, s]);
@@ -467,9 +467,9 @@ const playList = (list: T[], shuf: boolean) => {
   <div className="view" key={'s' + sub.id}>
     <div className="sh">
       <button className="ib" onClick={() => setSubs(subs.slice(0, -1))}><Ic n="down" c="bk" /></button>
-      <h2 style={{ fontSize: 20, margin: 0 }}>{subData?.name || subData?.title || sub.name || ''}</h2>
+      <h2 style={{ fontSize: 20, margin: 0 }}>{(subData?._id === sub.id && (subData.name || subData.title)) || sub.name || ''}</h2>
     </div>
-    {!subData ? <div className="er">Memuat…</div> : subData.error ? <div className="er">Gagal memuat. Coba lagi nanti.</div> : sub.type === 'artist' ? (<>
+    {!subData || subData._id !== sub.id ? <div className="er">Memuat…</div> : subData.error ? <div className="er">Gagal memuat. Coba lagi nanti.</div> : sub.type === 'artist' ? (<>
       <div className="ah rise">
         <div className="ap"><img src={cover(subData.thumb, 500)} alt="" /></div>
         <h1 className="an">{subData.name}</h1>
