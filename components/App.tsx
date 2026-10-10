@@ -43,6 +43,14 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+type Ar = { id: string; name: string; thumb: string };
+type Sub = { type: 'artist' | 'album'; id: string; name?: string };
+const TR: Record<string, string> = {
+  Songs: 'Lagu teratas', Albums: 'Album', Singles: 'Single & EP', 'Singles & EPs': 'Single & EP',
+  Videos: 'Video', 'Live performances': 'Pertunjukan langsung', 'Featured on': 'Termasuk di',
+  'Fans might also like': 'Penggemar mungkin juga suka', Playlists: 'Playlist',
+};
+const asT = (it: any, who = ''): T => ({ id: it.id, title: it.title, artist: it.sub || who, thumb: it.thumb || '', duration: it.duration || 0 });
 type Cat = { t: string; q: string; h: number; i: string };
 const C = (t: string, q: string, h: number, i: string): Cat => ({ t, q, h, i });
 const CI: Record<string, string> = {
@@ -117,6 +125,10 @@ export default function App() {
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
   const [open, setOpen] = useState(false);
+  const [arts, setArts] = useState<Ar[]>([]);
+  const [subs, setSubs] = useState<Sub[]>([]);
+  const [subData, setSubData] = useState<any>(null);
+  const sub = subs[subs.length - 1];
   const [showQ, setShowQ] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(0); // 0 = mati, 1 = ulang semua, 2 = ulang satu lagu
@@ -299,6 +311,27 @@ useEffect(() => {
     step(1);
   };
   const toggle = () => {
+   useEffect(() => {
+  if (!q.trim() || cat) { setArts([]); return; }
+  const id = setTimeout(async () => {
+    const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
+    setArts(d.artists || []);
+  }, 500);
+  return () => clearTimeout(id);
+}, [q, cat]);
+useEffect(() => {
+  setSubData(null);
+  if (!sub) return;
+  let ok = true;
+  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true } : d); });
+  return () => { ok = false; };
+}, [sub?.id, sub?.type]);
+const openSub = (s: Sub) => setSubs([...subs, s]);
+const playList = (list: T[], shuf: boolean) => {
+  if (!list.length) return;
+  const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
+  setShuffle(shuf); play(l, 0); setOpen(true);
+};
     const p = pl.current; if (!p) return;
     if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
   };
@@ -409,7 +442,59 @@ useEffect(() => {
   </div>
 )}
 
-      {view === 1 && (
+      {view === 1 && sub && (
+  <div className="view" key={'s' + sub.id}>
+    <div className="sh">
+      <button className="ib" onClick={() => setSubs(subs.slice(0, -1))}><Ic n="down" c="bk" /></button>
+      <h2 style={{ fontSize: 20, margin: 0 }}>{subData?.name || subData?.title || sub.name || ''}</h2>
+    </div>
+    {!subData ? <div className="er">Memuat…</div> : subData.error ? <div className="er">Gagal memuat. Coba lagi nanti.</div> : sub.type === 'artist' ? (<>
+      <div className="ah rise">
+        <div className="ap"><img src={cover(subData.thumb, 500)} alt="" /></div>
+        <h1 className="an">{subData.name}</h1>
+        {subData.description && <p className="ad">{subData.description}</p>}
+        <div className="ab">
+          <button className="big" onClick={() => playList(subData.songs, false)}><Ic n="play" /> Putar</button>
+          <button className="big alt" onClick={() => playList(subData.songs, true)}><Ic n="shuf" /> Acak</button>
+        </div>
+      </div>
+      {subData.songs.length > 0 && (<><h2>Lagu teratas</h2>{subData.songs.slice(0, 8).map((t: T, k: number) => row(t, subData.songs, k))}</>)}
+      {subData.sections.map((s: any) => {
+        const pl: T[] = s.items.filter((i: any) => i.kind === 'song' || i.kind === 'video').map((i: any) => asT(i, subData.name));
+        return (
+          <div key={s.title}>
+            <h2>{TR[s.title] || s.title}</h2>
+            <div className="hs2">
+              {s.items.map((it: any, k: number) => (
+                <button key={it.id + k} className={'sq lg' + (it.kind === 'artist' ? ' rd' : '')}
+                  onClick={() => {
+                    if (it.kind === 'artist') openSub({ type: 'artist', id: it.id, name: it.title });
+                    else if (it.kind === 'album' || it.kind === 'playlist') openSub({ type: 'album', id: it.id, name: it.title });
+                    else { const i = pl.findIndex((x) => x.id === it.id); if (i < 0) return; play(pl, i); setOpen(true); }
+                  }}>
+                  <div className="sqi"><img src={cover(it.thumb, 400)} alt="" /></div>
+                  <b>{it.title}</b><span>{it.sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </>) : (<>
+      <div className="abh rise">
+        <div className="ai2"><img src={cover(subData.thumb, 400)} alt="" /></div>
+        <div><h2 style={{ margin: '0 0 4px', fontSize: 20 }}>{subData.title}</h2><div className="sub" style={{ margin: 0 }}>{subData.subtitle}</div></div>
+      </div>
+      <div className="ab">
+        <button className="big" onClick={() => playList(subData.tracks, false)}><Ic n="play" /> Putar</button>
+        <button className="big alt" onClick={() => playList(subData.tracks, true)}><Ic n="shuf" /> Acak</button>
+      </div>
+      {subData.tracks.map((t: T, k: number) => row(t, subData.tracks, k))}
+    </>)}
+  </div>
+)}
+      
+      {view === 1 && !sub && (
   <div className="view" key="v1">
     <div className="sh">
       {q.trim() && <button className="ib" onClick={closeSearch}><Ic n="down" c="bk" /></button>}
@@ -424,6 +509,17 @@ useEffect(() => {
       {q.trim() && !cat && <button className="xb" onClick={closeSearch}><svg className="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>}
     </div>
     {q.trim() ? (<>
+      {!cat && arts.length > 0 && (<>
+  <h2>Artis</h2>
+  <div className="arow">
+    {arts.map((a) => (
+      <button key={a.id} className="ac" onClick={() => openSub({ type: 'artist', id: a.id, name: a.name })}>
+        <div className="ai"><img src={cover(a.thumb, 300)} alt="" /></div><b>{a.name}</b>
+      </button>
+    ))}
+  </div>
+  <h2>Lagu</h2>
+</>)}  
       {cat && (
         <div className="cb" style={{ '--h': cat.h } as any}>
           <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[cat.i] }} />
