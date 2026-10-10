@@ -136,6 +136,8 @@ export default function App() {
   const [liked, setLiked] = useLS<T[]>('cropify:liked', []);
   const [hist, setHist] = useLS<T[]>('cropify:hist', []);
   const pl = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isNative = Capacitor.isNativePlatform();
   const stack = useRef<number[]>([]);
   const want = useRef(false);
   const sil = useRef<HTMLAudioElement | null>(null);
@@ -191,25 +193,57 @@ export default function App() {
   }, [cur?.id]);
 
   // Notifikasi media native (hanya aktif di dalam APK)
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() || !cur) return;
-    const ms: any = NativeMS;
-    try {
-      ms.setMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || 'https://cropifymusic.vercel.app/logo.png', sizes: '512x512', type: 'image/jpeg' }] });
-      ms.setActionHandler({ action: 'play' }, () => { want.current = true; pl.current?.playVideo(); });
-      ms.setActionHandler({ action: 'pause' }, () => { want.current = false; pl.current?.pauseVideo(); });
-      ms.setActionHandler({ action: 'nexttrack' }, () => stepRef.current(1));
-      ms.setActionHandler({ action: 'previoustrack' }, () => stepRef.current(-1));
-    } catch {}
-  }, [cur?.id]);
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    try { (NativeMS as any).setPlaybackState({ playbackState: playing ? 'playing' : 'paused' }); } catch {}
-  }, [playing]);
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() || !dur) return;
-    try { (NativeMS as any).setPositionState({ duration: dur, position: Math.min(time, dur), playbackRate: 1 }); } catch {}
-  }, [Math.floor(time / 5), dur]);
+useEffect(() => {
+  if (!isNative || !cur) return;
+
+  const ms: any = NativeMS;
+  try {
+    ms.setMetadata({
+      title: cur.title,
+      artist: cur.artist,
+      artwork: [
+        {
+          src: cur.thumb || 'https://cropifymusic.vercel.app/logo.png',
+          sizes: '512x512',
+          type: 'image/jpeg',
+        },
+      ],
+    });
+
+    ms.setActionHandler({ action: 'play' }, () => {
+      want.current = true;
+      audioRef.current?.play();
+    });
+
+    ms.setActionHandler({ action: 'pause' }, () => {
+      want.current = false;
+      audioRef.current?.pause();
+    });
+
+    ms.setActionHandler({ action: 'nexttrack' }, () => stepRef.current(1));
+    ms.setActionHandler({ action: 'previoustrack' }, () => stepRef.current(-1));
+  } catch {}
+}, [cur?.id, isNative]);
+
+useEffect(() => {
+  if (!isNative) return;
+  try {
+    (NativeMS as any).setPlaybackState({
+      playbackState: playing ? 'playing' : 'paused',
+    });
+  } catch {}
+}, [playing, isNative]);
+
+useEffect(() => {
+  if (!isNative || !dur) return;
+  try {
+    (NativeMS as any).setPositionState({
+      duration: dur,
+      position: Math.min(time, dur),
+      playbackRate: 1,
+    });
+  } catch {}
+}, [Math.floor(time / 5), dur, isNative]);
 
   // Beranda: lagu sesuai chip
   useEffect(() => {
@@ -278,58 +312,211 @@ export default function App() {
     return () => { ok = false; };
   }, [cur?.id]);
 
-  // Sinkronkan waktu dari player YouTube
-  useEffect(() => {
-    if (!playing) return;
-    const id = setInterval(() => {
+ // Sinkronkan waktu dari player
+useEffect(() => {
+  if (!playing) return;
+
+  const id = setInterval(() => {
+    if (isNative) {
+      // Mode APK → ambil dari HTML5 Audio
+      if (audioRef.current) {
+        setTime(audioRef.current.currentTime);
+        if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+          setDur(audioRef.current.duration);
+        }
+      }
+    } else {
+      // Mode browser → ambil dari YouTube
       const p = pl.current;
       if (p?.getCurrentTime) {
         setTime(p.getCurrentTime());
         const d = p.getDuration?.();
         if (d) setDur(d);
       }
-    }, 250);
-    return () => clearInterval(id);
-  }, [playing]);
+    }
+  }, 250);
 
-  const kick = () => { want.current = true; sil.current?.play().catch(() => {}); };
-  const play = (list: T[], i: number) => {
-    const t = list[i];
-    if (!t) return;
-    kick();
-    stack.current = [];
-    setQueue(list); setQi(i); setPlaying(true); setTime(0); setDur(t.duration);
-    setHist([t, ...hist.filter((x) => x.id !== t.id)].slice(0, 30));
-  };
-  const jump = (n: number) => { kick(); setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration); };
-  const step = useCallback((d: number) => {
-    if (!queue.length) return;
-    let n: number;
-    if (shuffle && queue.length > 1) {
-      if (d < 0 && stack.current.length) {
-        n = stack.current.pop() as number;
-      } else {
-        stack.current.push(qi);
-        do { n = Math.floor(Math.random() * queue.length); } while (n === qi);
+  return () => clearInterval(id);
+}, [playing, isNative]);
+
+  const kick = () => {
+  want.current = true;
+  sil.current?.play().catch(() => {});
+};
+
+const playNative = async (track: T) => {
+  try {
+    const data = await api('/api/stream?id=' + track.id);
+    if (!data?.url) throw new Error('no stream');
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+    }
+
+    const a = audioRef.current;
+
+    a.onloadedmetadata = null;
+    a.ontimeupdate = null;
+    a.onended = null;
+    a.onplay = null;
+    a.onpause = null;
+    a.onerror = null;
+
+    a.src = data.url;
+
+    a.onloadedmetadata = () => {
+      setDur(a.duration || data.duration || track.duration || 0);
+    };
+    a.ontimeupdate = () => setTime(a.currentTime);
+    a.onended = () => ended();
+    a.onplay = () => setPlaying(true);
+    a.onpause = () => setPlaying(false);
+    a.onerror = () => {
+      console.error('Audio error, fallback youtube');
+      pl.current?.loadVideoById?.(track.id);
+      pl.current?.playVideo?.();
+    };
+
+    await a.play();
+  } catch (e) {
+    console.error('Native play failed', e);
+    pl.current?.loadVideoById?.(track.id);
+    pl.current?.playVideo?.();
+  }
+};
+
+const play = (list: T[], i: number) => {
+  const t = list[i];
+  if (!t) return;
+
+  kick();
+  stack.current = [];
+  setQueue(list);
+  setQi(i);
+  setPlaying(true);
+  setTime(0);
+  setDur(t.duration || 0);
+  setHist([t, ...hist.filter((x) => x.id !== t.id)].slice(0, 30));
+
+  if (isNative) {
+    playNative(t);
+  }
+};
+
+const jump = (n: number) => {
+  kick();
+  setQi(n);
+  setTime(0);
+  setPlaying(true);
+  setDur(queue[n]?.duration || 0);
+
+  if (isNative) {
+    playNative(queue[n]);
+  }
+};
+
+const step = useCallback((d: number) => {
+  if (!queue.length) return;
+
+  let n: number;
+  if (shuffle && queue.length > 1) {
+    if (d < 0 && stack.current.length) {
+      n = stack.current.pop() as number;
+    } else {
+      stack.current.push(qi);
+      do {
+        n = Math.floor(Math.random() * queue.length);
+      } while (n === qi);
+    }
+  } else {
+    n = (qi + d + queue.length) % queue.length;
+  }
+
+  if (n === qi) {
+    if (isNative) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
       }
     } else {
-      n = (qi + d + queue.length) % queue.length;
+      pl.current?.seekTo(0, true);
+      pl.current?.playVideo();
     }
-    if (n === qi) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
-    setQi(n); setTime(0); setPlaying(true); setDur(queue[n].duration);
-  }, [queue, qi, shuffle]);
-  stepRef.current = step;
-  const ended = () => {
-    if (repeat === 2) { pl.current?.seekTo(0, true); pl.current?.playVideo(); return; }
-    if (repeat === 0 && !shuffle && qi === queue.length - 1) { want.current = false; setPlaying(false); setTime(0); return; }
-    step(1);
-  };
-  const toggle = () => {
+    return;
+  }
+
+  setQi(n);
+  setTime(0);
+  setPlaying(true);
+  setDur(queue[n].duration || 0);
+
+  if (isNative) {
+    playNative(queue[n]);
+  }
+}, [queue, qi, shuffle, isNative]);
+
+stepRef.current = step;
+
+const ended = () => {
+  if (repeat === 2) {
+    if (isNative) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    } else {
+      pl.current?.seekTo(0, true);
+      pl.current?.playVideo();
+    }
+    return;
+  }
+
+  if (repeat === 0 && !shuffle && qi === queue.length - 1) {
+    want.current = false;
+    setPlaying(false);
+    setTime(0);
+    return;
+  }
+
+  step(1);
+};
+
+const toggle = () => {
+  if (isNative) {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) {
+      want.current = false;
+      a.pause();
+    } else {
+      kick();
+      a.play();
+    }
+  } else {
     const p = pl.current;
     if (!p) return;
-    if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
-  };
-  const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
+    if (playing) {
+      want.current = false;
+      p.pauseVideo();
+    } else {
+      kick();
+      p.playVideo();
+    }
+  }
+};
+
+const seek = (s: number) => {
+  if (isNative) {
+    if (audioRef.current) {
+      audioRef.current.currentTime = s;
+      setTime(s);
+    }
+  } else {
+    pl.current?.seekTo(s, true);
+    setTime(s);
+  }
+};
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
   const like = (t: T) => setLiked(isL(t) ? liked.filter((x) => x.id !== t.id) : [t, ...liked]);
   const openCat = (c: Cat) => { setCat(c); setQ(c.q); };
@@ -347,15 +534,27 @@ export default function App() {
   };
 
   // Kontrol di notifikasi / layar kunci (browser)
-  useEffect(() => {
-    if (!cur || !('mediaSession' in navigator)) return;
-    const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist, artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }] });
-    ms.setActionHandler('play', () => { want.current = true; pl.current?.playVideo(); });
-    ms.setActionHandler('pause', () => { want.current = false; pl.current?.pauseVideo(); });
-    ms.setActionHandler('nexttrack', () => step(1));
-    ms.setActionHandler('previoustrack', () => step(-1));
-  }, [cur, step]);
+useEffect(() => {
+  if (!cur || !('mediaSession' in navigator) || isNative) return;
+
+  const ms = navigator.mediaSession;
+  ms.metadata = new MediaMetadata({
+    title: cur.title,
+    artist: cur.artist,
+    artwork: [{ src: cur.thumb || '/logo.png', sizes: '512x512' }],
+  });
+
+  ms.setActionHandler('play', () => {
+    want.current = true;
+    pl.current?.playVideo();
+  });
+  ms.setActionHandler('pause', () => {
+    want.current = false;
+    pl.current?.pauseVideo();
+  });
+  ms.setActionHandler('nexttrack', () => step(1));
+  ms.setActionHandler('previoustrack', () => step(-1));
+}, [cur, step, isNative]);
 
   const row = (t: T, list: T[], i: number) => (
     <div key={t.id} role="button" className={'row rise ' + (cur?.id === t.id && playing ? 'cur' : '')}
@@ -381,10 +580,18 @@ export default function App() {
             opts={{ width: '200', height: '200', playerVars: { autoplay: 1, playsinline: 1, controls: 0 } }}
             onReady={(e: any) => { pl.current = e.target; }}
             onStateChange={(e: any) => {
-              if (e.data === 1) { want.current = true; setPlaying(true); }
-              else if (e.data === 2) { if (want.current && document.hidden) e.target.playVideo(); else setPlaying(false); }
-              else if (e.data === 0) ended();
-            }} />
+  if (isNative) return; // di APK kita pakai HTML5 Audio, abaikan YouTube
+
+  if (e.data === 1) {
+    want.current = true;
+    setPlaying(true);
+  } else if (e.data === 2) {
+    if (want.current && document.hidden) e.target.playVideo();
+    else setPlaying(false);
+  } else if (e.data === 0) {
+    ended();
+  }
+}} />
         )}
       </div>
 
