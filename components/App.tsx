@@ -43,6 +43,38 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+type Cat = { t: string; q: string; h: number; i: string };
+const C = (t: string, q: string, h: number, i: string): Cat => ({ t, q, h, i });
+const CI: Record<string, string> = {
+  wave: '<path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>',
+  drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  moon: '<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/>',
+  heart: '<path d="M12 20s-8-4.7-9-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-1 5.3-9 10-9 10z"/>',
+  road: '<path d="M8 3L5 21M16 3l3 18M12 4v3M12 11v3M12 18v3"/>',
+  disco: '<circle cx="12" cy="13" r="8"/><path d="M4 13h16M12 5v16M7 7.5c3 2 7 2 10 0M7 18.5c3-2 7-2 10 0"/>',
+  note: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  guitar: '<path d="M20 4l-6 6M18 2l4 4M11 9a4 4 0 0 0-4 4v1a3 3 0 1 0 3 3h1a4 4 0 0 0 4-4 4 4 0 0 0-4-4z"/>',
+  leaf: '<path d="M5 19C5 10 10 5 20 4c0 10-5 15-14 15zM5 19l8-8"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  piano: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v8M12 5v8M16 5v8"/>',
+  flame: '<path d="M12 22a6 6 0 0 0 6-6c0-4-3-6-4-10-3 2-4 5-4 7-1-1-2-2-2-4-2 2-2 4-2 7a6 6 0 0 0 6 6z"/>',
+  vinyl: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',
+  drum: '<ellipse cx="12" cy="7" rx="8" ry="3"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M9 10l-2 8M15 10l2 8"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  shuffle: '<path d="M3 7h4l10 10h4M3 17h4l3-3M14 10l3-3h4M18 4l3 3-3 3M18 14l3 3-3 3"/>',
+};
+const GROUPS: { title: string; cats: Cat[] }[] = [
+  { title: 'Suasana', cats: [C('Santai', 'lagu santai indonesia', 190, 'wave'), C('Galau', 'lagu galau indonesia', 265, 'drop'), C('Semangat', 'lagu semangat pagi', 22, 'bolt'), C('Fokus', 'lofi study focus', 150, 'target'), C('Tidur', 'lagu pengantar tidur', 235, 'moon'), C('Romantis', 'lagu romantis indonesia', 335, 'heart'), C('Perjalanan', 'lagu perjalanan road trip', 42, 'road'), C('Pesta', 'lagu pesta dance', 300, 'disco')] },
+  { title: 'Genre', cats: [C('Pop', 'pop indonesia terbaru', 320, 'note'), C('Rock', 'rock indonesia', 8, 'guitar'), C('Indie', 'indie indonesia', 165, 'leaf'), C('Hip Hop', 'hip hop indonesia', 45, 'mic'), C('Jazz', 'jazz santai', 255, 'piano'), C('Akustik', 'akustik indonesia', 30, 'guitar'), C('EDM', 'edm remix', 280, 'bolt'), C('Metal', 'metal', 0, 'flame'), C('Reggae', 'reggae indonesia', 120, 'leaf'), C('R&B', 'rnb soul', 350, 'vinyl')] },
+  { title: 'Khas Indonesia', cats: [C('Dangdut', 'dangdut terbaru', 340, 'drum'), C('Koplo', 'dangdut koplo', 14, 'drum'), C('Campursari', 'campursari', 35, 'vinyl'), C('Keroncong', 'keroncong', 200, 'piano'), C('Lagu Daerah', 'lagu daerah', 150, 'globe'), C('Religi', 'lagu religi islami', 170, 'moon')] },
+  { title: 'Era', cats: [C('80-an', 'lagu 80an indonesia', 300, 'clock'), C('90-an', 'lagu 90an indonesia', 20, 'clock'), C('2000-an', 'lagu 2000an indonesia', 210, 'clock'), C('2010-an', 'lagu hits 2010an indonesia', 100, 'clock')] },
+  { title: 'Dunia', cats: [C('K-Pop', 'kpop', 330, 'star'), C('J-Pop', 'jpop anime', 280, 'star'), C('Latin', 'latin pop', 25, 'disco'), C('Barat', 'top hits english', 215, 'globe'), C('Melayu', 'pop melayu', 160, 'note')] },
+];
+const TREN = ['Pop Indonesia', 'Dangdut koplo', 'Lofi', 'Akustik', 'Indie Indonesia', 'Dj remix', 'Religi'];
 const cover = (u?: string, s = 400) => (u ? u.replace(/=w\d+-h\d+.*$/, `=w${s}-h${s}-l90-rj`) : '/logo.png');
 function silentUrl() {
   const n = 80000, b = new ArrayBuffer(44 + n), v = new DataView(b);
@@ -73,6 +105,8 @@ export default function App() {
   const [g, setG] = useState<[string, string]>(['pagi', 'sun']);
   const [home, setHome] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cat, setCat] = useState<Cat | null>(null);
+  const [recent, setRecent] = useLS<string[]>('cropify:recent', []);
   const [rows, setRows] = useState<{ title: string; tracks: T[] }[]>([]);
   const [q, setQ] = useState('');
   const [res, setRes] = useState<T[]>([]);
@@ -271,7 +305,14 @@ useEffect(() => {
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
   const like = (t: T) => setLiked(isL(t) ? liked.filter((x) => x.id !== t.id) : [t, ...liked]);
-
+  const openCat = (c: Cat) => { setCat(c); setQ(c.q); };
+  const closeSearch = () => { setCat(null); setQ(''); };
+  const saveRecent = (s: string) => {
+  const v = s.trim();
+  if (v.length < 2 || cat) return;
+  setRecent([v, ...recent.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8));
+ };
+  
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
@@ -369,12 +410,58 @@ useEffect(() => {
 )}
 
       {view === 1 && (
-        <div className="view" key="v1">
-          <h2 style={{ fontSize: 26, marginTop: 6 }}>Cari</h2>
-          <div className="srch"><Ic n="search" /><input placeholder="Judul lagu atau artis" value={q} onChange={(e) => setQ(e.target.value)} autoFocus /></div>
-          {searching ? <div className="er">Mencari…</div> : res.length ? res.map((t, k) => row(t, res, k)) : q.trim() ? <div className="er">Tidak ditemukan</div> : <div className="er">Ketik untuk mencari lagu</div>}
+  <div className="view" key="v1">
+    <div className="sh">
+      {q.trim() && <button className="ib" onClick={closeSearch}><Ic n="down" c="bk" /></button>}
+      <h2 style={{ fontSize: 26, margin: 0 }}>{cat ? cat.t : q.trim() ? 'Hasil pencarian' : 'Cari'}</h2>
+    </div>
+    <div className="srch">
+      <Ic n="search" />
+      <input placeholder="Judul lagu, artis, atau suasana" value={cat ? '' : q}
+        onChange={(e) => { setCat(null); setQ(e.target.value); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        onBlur={() => saveRecent(q)} />
+      {q.trim() && !cat && <button className="xb" onClick={closeSearch}><svg className="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>}
+    </div>
+    {q.trim() ? (<>
+      {cat && (
+        <div className="cb" style={{ '--h': cat.h } as any}>
+          <svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[cat.i] }} />
+          <div><b>{cat.t}</b><span>{searching ? 'Mencari lagu…' : `${res.length} lagu pilihan`}</span></div>
         </div>
       )}
+      {searching ? <div className="er">Mencari…</div> : res.length ? res.map((t, k) => row(t, res, k)) : <div className="er">Tidak ditemukan</div>}
+    </>) : (<>
+      <button className="sur rise" onClick={() => { const all = GROUPS.flatMap((g) => g.cats); openCat(all[Math.floor(Math.random() * all.length)]); }}>
+        <span className="sp"><svg className="i" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI.shuffle }} /></span>
+        <div><b>Kejutkan aku</b><span>Pilih kategori secara acak</span></div>
+      </button>
+      {recent.length > 0 && (<>
+        <h2>Pencarian terakhir <button className="lnk" onClick={() => setRecent([])}>Hapus</button></h2>
+        <div className="chips wr">
+          {recent.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
+        </div>
+      </>)}
+      <h2>Lagi ramai</h2>
+      <div className="chips wr">
+        {TREN.map((s) => <button key={s} className="chip" onClick={() => { setCat(null); setQ(s); }}>{s}</button>)}
+      </div>
+      {GROUPS.map((g) => (
+        <div key={g.title}>
+          <h2>{g.title}</h2>
+          <div className="cgrid">
+            {g.cats.map((c, k) => (
+              <button key={c.t} className="cc rise" style={{ '--h': c.h, animationDelay: `${Math.min(k, 8) * 40}ms` } as any} onClick={() => openCat(c)}>
+                <svg className="i cg" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CI[c.i] }} />
+                <b>{c.t}</b>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>)}
+  </div>
+)}
 
       {view === 2 && (
         <div className="view" key="v2">
