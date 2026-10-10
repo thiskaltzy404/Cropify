@@ -142,7 +142,28 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
- useEffect(() => {
+  useEffect(() => {
+  if (!q.trim() || cat) { setArts([]); return; }
+  const id = setTimeout(async () => {
+    const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
+    setArts(d.artists || []);
+  }, 500);
+  return () => clearTimeout(id);
+}, [q, cat]);
+useEffect(() => {
+  setSubData(null);
+  if (!sub) return;
+  let ok = true;
+  api(`/api/music?kind=${sub.type}&id=${encodeURIComponent(sub.id)}`).then((d) => { if (ok) setSubData(!d || d.error ? { error: true } : d); });
+  return () => { ok = false; };
+}, [sub?.id, sub?.type]);
+const openSub = (s: Sub) => setSubs([...subs, s]);
+const playList = (list: T[], shuf: boolean) => {
+  if (!list.length) return;
+  const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
+  setShuffle(shuf); play(l, 0); setOpen(true);
+};
+  useEffect(() => {
   let ok = true;
   const defs: [string, string][] = [
     ['Lagu galau pilihan', 'lagu galau indonesia'],
