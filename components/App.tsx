@@ -332,8 +332,7 @@ useEffect(() => {
     step(1);
   };
   const toggle = () => {
-   useEffect(() => {
-  if (!q.trim() || cat) { setArts([]); return; }
+  { setArts([]); return; }
   const id = setTimeout(async () => {
     const d = await api('/api/music?kind=artists&q=' + encodeURIComponent(q));
     setArts(d.artists || []);
@@ -353,8 +352,9 @@ const playList = (list: T[], shuf: boolean) => {
   const l = shuf ? [...list].sort(() => Math.random() - 0.5) : list;
   setShuffle(shuf); play(l, 0); setOpen(true);
 };
-    const p = pl.current; if (!p) return;
-    if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
+ const toggle = () => {   
+  const p = pl.current; if (!p) return;
+  if (playing) { want.current = false; p.pauseVideo(); } else { kick(); p.playVideo(); }
   };
   const seek = (s: number) => { pl.current?.seekTo(s, true); setTime(s); };
   const isL = (t?: T) => !!t && liked.some((x) => x.id === t.id);
