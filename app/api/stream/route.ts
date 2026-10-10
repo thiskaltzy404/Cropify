@@ -29,37 +29,57 @@ export async function GET(req: Request) {
     const format = info.chooseFormat({
       type: 'audio',
       quality: 'best',
-      format: 'mp4', // biasanya menghasilkan m4a
+      format: 'mp4',
     });
 
-    if (!format?.url && !format?.decipher_url) {
-      // fallback
-      const formats = [
-        ...(info.streaming_data?.adaptive_formats || []),
-        ...(info.streaming_data?.formats || []),
-      ];
-      const audio = formats
-        .filter((f: any) => f.has_audio && !f.has_video)
-        .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+    if (format) {
+      let url = format.url;
 
-      if (!audio) {
-        return Response.json({ error: 'no_audio' }, { status: 404 });
+      // Kalau belum ada url, coba decipher
+      if (!url && typeof (format as any).decipher === 'function') {
+        try {
+          url = await (format as any).decipher(y.session.player);
+        } catch {}
       }
 
-      const url = audio.url || (await audio.decipher?.(y.session.player));
-      return Response.json({
-        url,
-        mime: audio.mime_type || 'audio/mp4',
-        duration: info.basic_info?.duration || 0,
-      });
+      if (url) {
+        return Response.json({
+          url,
+          mime: format.mime_type || 'audio/mp4',
+          duration: info.basic_info?.duration || 0,
+        });
+      }
     }
 
-    const url = format.url || (await format.decipher?.(y.session.player));
-    return Response.json({
-      url,
-      mime: format.mime_type || 'audio/mp4',
-      duration: info.basic_info?.duration || 0,
-    });
+    // Fallback: cari manual dari adaptive_formats
+    const formats = [
+      ...(info.streaming_data?.adaptive_formats || []),
+      ...(info.streaming_data?.formats || []),
+    ];
+
+    const audioFormats = formats
+      .filter((f: any) => f.has_audio && !f.has_video)
+      .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+
+    for (const audio of audioFormats) {
+      let url = audio.url;
+
+      if (!url && typeof audio.decipher === 'function') {
+        try {
+          url = await audio.decipher(y.session.player);
+        } catch {}
+      }
+
+      if (url) {
+        return Response.json({
+          url,
+          mime: audio.mime_type || 'audio/mp4',
+          duration: info.basic_info?.duration || 0,
+        });
+      }
+    }
+
+    return Response.json({ error: 'no_audio' }, { status: 404 });
   } catch (e) {
     yt = null;
     console.error('stream error', e);
