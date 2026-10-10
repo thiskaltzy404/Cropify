@@ -43,6 +43,7 @@ function useLS<S>(k: string, d: S): [S, (v: S) => void] {
   return [v, (n: S) => { setV(n); try { localStorage.setItem(k, JSON.stringify(n)); } catch {} }];
 }
 const Th = ({ t }: { t?: T }) => <img src={t?.thumb || '/logo.png'} alt="" loading="lazy" />;
+const cover = (u?: string, s = 400) => (u ? u.replace(/=w\d+-h\d+.*$/, `=w${s}-h${s}-l90-rj`) : '/logo.png');
 function silentUrl() {
   const n = 80000, b = new ArrayBuffer(44 + n), v = new DataView(b);
   const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
@@ -72,6 +73,7 @@ export default function App() {
   const [g, setG] = useState<[string, string]>(['pagi', 'sun']);
   const [home, setHome] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<{ title: string; tracks: T[] }[]>([]);
   const [q, setQ] = useState('');
   const [res, setRes] = useState<T[]>([]);
   const [searching, setSearching] = useState(false);
@@ -94,6 +96,18 @@ export default function App() {
   const cur: T | undefined = queue[qi];
 
   useEffect(() => setG(greet()), []);
+ useEffect(() => {
+  let ok = true;
+  const defs: [string, string][] = [
+    ['Lagu galau pilihan', 'lagu galau indonesia'],
+    ['Pop Indonesia terbaru', 'pop indonesia terbaru'],
+    ['Santai untuk fokus', 'lofi chill indonesia'],
+  ];
+  Promise.all(defs.map((d) => api('/api/search?q=' + encodeURIComponent(d[1])))).then((rs) => {
+    if (ok) setRows(defs.map((d, i) => ({ title: d[0], tracks: rs[i].tracks || [] })).filter((r) => r.tracks.length));
+  });
+  return () => { ok = false; };
+}, []);
   useEffect(() => {
   if (!Capacitor.isNativePlatform() || !cur) return;
   const ms: any = NativeMS;
@@ -303,35 +317,56 @@ useEffect(() => {
       </div>
 
       {view === 0 && (
-        <div className="view" key="v0">
-          <div className="top">
-            <div className="av"><img src="/logo.png" alt="Cropify" /></div>
-            <div className="brand">Cropify</div>
-            <button className="ib" onClick={() => setView(1)}><Ic n="search" /></button>
-          </div>
-          <h1 className="rise">Hi, Selamat {g[0]} <span className="hot"><Ic n={g[1]} /></span></h1>
-          <div className="sub rise" style={{ animationDelay: '.08s' }}>Halo, <b>KALTZY404</b> • mau dengar apa hari ini?</div>
-          <div className="chips">
-            {CHIPS.map((c, i) => <button key={c[0]} className={'chip ' + (i === chip ? 'on' : '')} onClick={() => setChip(i)}>{c[0]}</button>)}
-          </div>
-          {loading ? <div className="er">Memuat lagu…</div> : home.length === 0 ? (
-            <div className="er">Gagal memuat lagu. Coba ganti kategori atau muat ulang halaman.</div>
-          ) : (<>
-            <h2>Pilihan & trending</h2>
-            <div className="hs">
-             {home.slice(0, 3).map((t, k) => (
-              <button key={t.id} className="pc rise" style={{ animationDelay: `${k * 100}ms` }} onClick={() => { play(home, k); setOpen(true); }}>
-               <img src={(t.thumb || '/logo.png').replace(/=w\d+-h\d+.*$/, '=w600-h600-l90-rj')} alt="" />
-               <div className="pt"><h3>{t.title}</h3><p>{t.artist}</p></div>
-               <div className="pf2"><span>Pilihan hari ini{t.duration ? ` • ${fm(t.duration)}` : ''}</span><div className="pb"><Ic n="play" /></div></div>
-              </button>
-            ))}
-           </div>
-            <h2>Daftar putar harian</h2>
-            {home.map((t, k) => (k >= 3 ? row(t, home, k) : null))}
-          </>)}
+  <div className="view" key="v0">
+    <div className="top">
+      <div className="av"><img src="/logo.png" alt="Cropify" /></div>
+      <div className="brand">Cropify</div>
+      <button className="ib" onClick={() => setView(1)}><Ic n="search" /></button>
+    </div>
+    <h1 className="rise">Hi, Selamat {g[0]} <span className="hot"><Ic n={g[1]} /></span></h1>
+    <div className="sub rise" style={{ animationDelay: '.08s' }}>Halo, <b>KALTZY404</b> • mau dengar apa hari ini?</div>
+    <div className="chips">
+      {CHIPS.map((c, i) => <button key={c[0]} className={'chip ' + (i === chip ? 'on' : '')} onClick={() => setChip(i)}>{c[0]}</button>)}
+    </div>
+    {loading ? <div className="er">Memuat lagu…</div> : home.length === 0 ? (
+      <div className="er">Gagal memuat lagu. Coba ganti kategori atau muat ulang halaman.</div>
+    ) : (<>
+      <div className="qg2">
+        {home.slice(0, 6).map((t, k) => (
+          <button key={t.id} className="qt rise" style={{ animationDelay: `${k * 50}ms` }} onClick={() => { play(home, k); setOpen(true); }}>
+            <img src={cover(t.thumb, 200)} alt="" /><span>{t.title}</span>
+          </button>
+        ))}
+      </div>
+      {hist.length > 0 && (<>
+        <h2>Baru diputar</h2>
+        <div className="hs2">
+          {hist.slice(0, 10).map((t, k) => (
+            <button key={t.id} className="sq" onClick={() => { play(hist, k); setOpen(true); }}>
+              <div className="sqi"><img src={cover(t.thumb, 300)} alt="" /></div>
+              <b>{t.title}</b><span>{t.artist}</span>
+            </button>
+          ))}
         </div>
-      )}
+      </>)}
+      <h2>Daftar putar harian</h2>
+      {home.slice(6, 10).map((t, k) => row(t, home, k + 6))}
+    </>)}
+    {rows.map((r) => (
+      <div key={r.title}>
+        <h2>{r.title}</h2>
+        <div className="hs2">
+          {r.tracks.slice(0, 10).map((t, k) => (
+            <button key={t.id} className="sq lg" onClick={() => { play(r.tracks, k); setOpen(true); }}>
+              <div className="sqi"><img src={cover(t.thumb, 500)} alt="" /></div>
+              <b>{t.title}</b><span>{t.artist}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
       {view === 1 && (
         <div className="view" key="v1">
